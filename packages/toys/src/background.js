@@ -4,7 +4,7 @@ import {
   WebGLRenderer
 } from 'three'
 
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import usePointer from './pointer'
 
@@ -39,7 +39,7 @@ export default function (params) {
     }
   }
 
-  let cameraCtrl
+  // let cameraCtrl
 
   init()
 
@@ -58,9 +58,9 @@ export default function (params) {
     three.camera.position.z = 50
     options.initCamera?.(three)
 
-    cameraCtrl = new OrbitControls(three.camera, three.renderer.domElement)
-    cameraCtrl.enableDamping = true
-    cameraCtrl.dampingFactor = 0.1
+    // cameraCtrl = new OrbitControls(three.camera, three.renderer.domElement)
+    // cameraCtrl.enableDamping = true
+    // cameraCtrl.dampingFactor = 0.1
 
     resize()
     window.addEventListener('resize', resize)
@@ -92,7 +92,7 @@ export default function (params) {
 
     options.beforeRender(three)
 
-    if (cameraCtrl) cameraCtrl.update()
+    // if (cameraCtrl) cameraCtrl.update()
 
     three.renderer.render(three.scene, three.camera)
     requestAnimationFrame(animate)
