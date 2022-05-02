@@ -1,5 +1,6 @@
 {
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "name": "threejs-toys",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,13 +12,8 @@
     "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.3.1",
+    "three": "^0.140.0",
+    "tweakpane": "^3.0.8",
     "vite": "^2.9.1"
-  },
-  "dependencies": {
-    "chroma-js": "^2.4.2",
-    "fast-simplex-noise": "^4.0.0",
-    "simplex-noise": "^3.0.1",
-    "three": "^0.139.2",
-    "tweakpane": "^3.0.8"
   }
 }

@@ -1,5 +1,5 @@
 import { Color, Mesh, OrthographicCamera, PlaneGeometry, ShaderMaterial, SplineCurve, Vector2, Vector3 } from 'three'
-import background from '../background'
+import background from '../../background'
 
 const defaultConfig = {
   shaderPoints: 8,
