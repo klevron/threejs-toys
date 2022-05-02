@@ -7,7 +7,11 @@ const defaultConfig = {
   curveLerp: 0.75,
   radius1: 3,
   radius2: 5,
-  velocityTreshold: 10
+  velocityTreshold: 10,
+  sleepRadiusX: 150,
+  sleepRadiusY: 150,
+  sleepTimeCoefX: 0.0025,
+  sleepTimeCoefY: 0.0025
 }
 
 export default function (params) {
@@ -154,12 +158,12 @@ export default function (params) {
       }
 
       if (!hover) {
-        const t1 = clock.time * 0.0025
-        const t2 = clock.time * 0.005
+        const t1 = clock.time * config.sleepTimeCoefX
+        const t2 = clock.time * config.sleepTimeCoefY
         const cos = Math.cos(t1)
         const sin = Math.sin(t2)
-        const r1 = (width / 8) * wWidth / width
-        const r2 = (height / 12) * wWidth / width
+        const r1 = config.sleepRadiusX * wWidth / width
+        const r2 = config.sleepRadiusY * wWidth / width
         const x = r1 * cos
         const y = r2 * sin
         spline.points[0].set(x, y)
