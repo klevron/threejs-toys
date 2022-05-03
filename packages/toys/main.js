@@ -3,7 +3,15 @@ import './style.css'
 // import background from './src/cursors/neon-cursor'
 import background from './src/backgrounds/noisy-lines'
 
-const bg = background({ el: document.getElementById('app') })
+const bg = background({
+  el: document.getElementById('app'),
+  colors: [143811, 10932726],
+  minStroke: 0.5,
+  maxStroke: 2,
+  timeCoef: 0.0002,
+  coordScale: 2,
+  displacementScale: 0.02
+})
 
 document.body.addEventListener('click', () => {
   bg.config.colors = [Math.round(Math.random() * 0xffffff), Math.round(Math.random() * 0xffffff)]

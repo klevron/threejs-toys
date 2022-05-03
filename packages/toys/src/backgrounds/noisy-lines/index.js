@@ -1,4 +1,4 @@
-import { Mesh, PlaneGeometry, ShaderMaterial } from 'three'
+import { Mesh, PlaneGeometry, ShaderMaterial, Vector2 } from 'three'
 import three from '../../three'
 import useCanvasTexture from '../../tools/canvasTexture'
 import psrdnoise from '../../glsl/psrdnoise2.glsl'
@@ -10,7 +10,9 @@ const defaultConfig = {
   maxStroke: 5,
   timeCoef: 0.0005,
   coordScale: 2,
-  displacementScale: 0.002
+  displacementScale: 0.002,
+  mouseScale: 0.25,
+  mouseLerp: 0.025
 }
 
 export default function (params) {
@@ -23,7 +25,8 @@ export default function (params) {
     uMap: { value: canvasTexture.texture },
     uTime: { value: 0 },
     uCoordScale: { value: config.coordScale },
-    uDisplacementScale: { value: config.displacementScale }
+    uDisplacementScale: { value: config.displacementScale },
+    uMouse: { value: new Vector2() }
   }
 
   const geometry = new PlaneGeometry()
@@ -42,12 +45,13 @@ export default function (params) {
       uniform float uTime;
       uniform float uCoordScale;
       uniform float uDisplacementScale;
+      uniform vec2 uMouse;
       varying vec2 vUv;
       ${psrdnoise}
       void main() {
         vec2 p = vec2(0.0);
         vec2 grad;
-        float n = psrdnoise(vUv * uCoordScale, p, uTime, grad);
+        float n = psrdnoise(vUv * uCoordScale + uMouse, p, uTime, grad);
         // grad *= uCoordScale;
         vec2 uv = vUv + uDisplacementScale * grad;
         gl_FragColor = texture2D(uMap, uv.yx);
@@ -56,6 +60,8 @@ export default function (params) {
   })
 
   const mesh = new Mesh(geometry, material)
+
+  const mouseTarget = new Vector2()
 
   three({
     el: params.el,
@@ -67,14 +73,15 @@ export default function (params) {
       camera.position.set(0, -30, 7)
       camera.lookAt(0, -19, 0)
     },
-    afterResize ({ wWidth, wHeight }) {
-    },
     beforeRender ({ clock }) {
       uniforms.uTime.value = clock.time * config.timeCoef
+      uniforms.uMouse.value.lerp(mouseTarget, config.mouseLerp)
     },
-    onPointerMove ({ position, nPosition, delta }) {
+    onPointerMove ({ nPosition }) {
+      mouseTarget.set(-nPosition.x, nPosition.y).multiplyScalar(config.mouseScale)
     },
     onPointerLeave () {
+      mouseTarget.set(0, 0)
     }
   })
 

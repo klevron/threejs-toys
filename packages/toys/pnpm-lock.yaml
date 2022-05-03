@@ -2,8 +2,6 @@ lockfileVersion: 5.3
 
 specifiers:
   '@rollup/plugin-replace': ^4.0.0
-  chroma-js: ^2.4.2
-  colord: ^2.9.2
   eslint: ^7.32.0
   eslint-config-standard: ^16.0.3
   eslint-plugin-import: ^2.25.4
@@ -19,8 +17,6 @@ specifiers:
 
 devDependencies:
   '@rollup/plugin-replace': 4.0.0_rollup@2.71.1
-  chroma-js: 2.4.2
-  colord: 2.9.2
   eslint: 7.32.0
   eslint-config-standard: 16.0.3_9bf09394420a4b6eb9c84de955276707
   eslint-plugin-import: 2.25.4_eslint@7.32.0
@@ -253,10 +249,6 @@ packages:
       supports-color: 7.2.0
     dev: true
 
-  /chroma-js/2.4.2:
-    resolution: {integrity: sha512-U9eDw6+wt7V8z5NncY2jJfZa+hUH8XEj8FQHgFJTrUFnJfXYf4Ml4adI2vXZOjqRDpFWtYVWypDfZwnJ+HIR4A==}
-    dev: true
-
   /color-convert/1.9.3:
     resolution: {integrity: sha512-QfAUtd+vFdAtFQcC8CCyYt1fYWxSqAiK2cSD6zDB8N3cpsEBAvRxp9zOGg6G/SHHJYAT88/az/IuDGALsNVbGg==}
     dependencies:
@@ -276,10 +268,6 @@ packages:
 
   /color-name/1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
-    dev: true
-
-  /colord/2.9.2:
-    resolution: {integrity: sha512-Uqbg+J445nc1TKn4FoDPS6ZZqAvEDnwrH42yo8B40JSOgSLxMZ/gt3h4nmCtPLQeXhjJJkqBx7SCY35WnIixaQ==}
     dev: true
 
   /concat-map/0.0.1:
