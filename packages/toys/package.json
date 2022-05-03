@@ -16,7 +16,8 @@
     "rollup-plugin-esbuild": "^4.9.1",
     "three": "^0.140.0",
     "tweakpane": "^3.0.8",
-    "vite": "^2.9.1"
+    "vite": "^2.9.1",
+    "vite-plugin-string": "^1.1.2"
   },
   "module": "build/threejs-toys.module.js",
   "repository": {
