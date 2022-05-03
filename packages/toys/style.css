@@ -20,6 +20,7 @@ body, html, #app {
   font-family: 'Montserrat', sans-serif;
   font-size: var(--fontSize);
   text-shadow: 0 0 5px #ffffff, 0 0 20px #000, 0 0 30px #000;
+  /* text-shadow: 0 0 20px #000, 0 0 30px #000; */
   text-transform: uppercase;
 }
 

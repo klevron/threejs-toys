@@ -6,7 +6,7 @@ import background from './src/backgrounds/noisy-lines'
 const bg = background({ el: document.getElementById('app') })
 
 document.body.addEventListener('click', () => {
-  bg.config.colors = [Math.random() * 0xffffff, Math.random() * 0xffffff]
+  bg.config.colors = [Math.round(Math.random() * 0xffffff), Math.round(Math.random() * 0xffffff)]
   bg.config.minStroke = Math.random() * 2
   bg.config.maxStroke = bg.config.minStroke + Math.random() * 5
   bg.drawTexture()
