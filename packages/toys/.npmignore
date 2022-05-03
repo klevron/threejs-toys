@@ -2,5 +2,6 @@
 .gitignore
 index.html
 main.js
+pnpm-lock.yaml
 rollup.config.js
 style.css
