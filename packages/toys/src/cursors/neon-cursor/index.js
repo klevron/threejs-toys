@@ -1,5 +1,5 @@
 import { Color, Mesh, OrthographicCamera, PlaneGeometry, ShaderMaterial, SplineCurve, Vector2, Vector3 } from 'three'
-import background from '../../background'
+import three from '../../three'
 
 const defaultConfig = {
   shaderPoints: 8,
@@ -32,7 +32,7 @@ export default function (params) {
   let plane
   let hover = false
 
-  background({
+  three({
     el: params.el,
     antialias: false,
     // init () {},

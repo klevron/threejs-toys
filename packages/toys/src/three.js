@@ -6,7 +6,7 @@ import {
 
 // import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
-import usePointer from './pointer'
+import pointer from './pointer'
 
 export default function (params) {
   const options = {
@@ -39,7 +39,7 @@ export default function (params) {
     }
   }
 
-  // let cameraCtrl
+  let cameraCtrl
 
   init()
 
@@ -70,8 +70,10 @@ export default function (params) {
 
     initPointer()
 
-    three.clock.startTime = three.clock.lastTime = performance.now()
-    requestAnimationFrame(animate)
+    requestAnimationFrame(timestamp => {
+      three.clock.startTime = three.clock.time = timestamp
+      requestAnimationFrame(animate)
+    })
   }
 
   function initPointer () {
@@ -81,13 +83,13 @@ export default function (params) {
     if (options.onPointerMove) { pointerOptions.onMove = options.onPointerMove }
     if (options.onPointerMove) { pointerOptions.onLeave = options.onPointerLeave }
     if (Object.keys(pointerOptions).length > 0) {
-      three.pointer = usePointer({ domElement: options.el, ...pointerOptions })
+      three.pointer = pointer({ domElement: options.el, ...pointerOptions })
     }
   }
 
   function animate (timestamp) {
     const { clock } = three
-    clock.elapsed = clock.timestamp - clock.time
+    clock.elapsed = timestamp - clock.time
     clock.time = timestamp
 
     options.beforeRender(three)
