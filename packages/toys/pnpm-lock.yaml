@@ -2,6 +2,7 @@ lockfileVersion: 5.3
 
 specifiers:
   '@rollup/plugin-replace': ^4.0.0
+  chroma-js: ^2.4.2
   eslint: ^7.32.0
   eslint-config-standard: ^16.0.3
   eslint-plugin-import: ^2.25.4
@@ -12,9 +13,11 @@ specifiers:
   three: ^0.140.0
   tweakpane: ^3.0.8
   vite: ^2.9.1
+  vite-plugin-string: ^1.1.2
 
 devDependencies:
   '@rollup/plugin-replace': 4.0.0_rollup@2.71.1
+  chroma-js: 2.4.2
   eslint: 7.32.0
   eslint-config-standard: 16.0.3_9bf09394420a4b6eb9c84de955276707
   eslint-plugin-import: 2.25.4_eslint@7.32.0
@@ -25,6 +28,7 @@ devDependencies:
   three: 0.140.0
   tweakpane: 3.0.8
   vite: 2.9.1
+  vite-plugin-string: 1.1.2
 
 packages:
 
@@ -243,6 +247,10 @@ packages:
     dependencies:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
+    dev: true
+
+  /chroma-js/2.4.2:
+    resolution: {integrity: sha512-U9eDw6+wt7V8z5NncY2jJfZa+hUH8XEj8FQHgFJTrUFnJfXYf4Ml4adI2vXZOjqRDpFWtYVWypDfZwnJ+HIR4A==}
     dev: true
 
   /color-convert/1.9.3:
@@ -1542,6 +1550,12 @@ packages:
 
   /v8-compile-cache/2.3.0:
     resolution: {integrity: sha512-l8lCEmLcLYZh4nbunNZvQCJc5pv7+RCwa8q/LdUx8u7lsWvPDKmpodJAJNwkAhJC//dFY48KuIEmjtd4RViDrA==}
+    dev: true
+
+  /vite-plugin-string/1.1.2:
+    resolution: {integrity: sha512-QMzsMAR4Vpw4DdCPNypVxKOkthtYIKNk8aR7U10kC/uMogf5tKsq5o8+lB9FtEu3XlSuym3On071zlUBP14yaw==}
+    dependencies:
+      '@rollup/pluginutils': 4.2.1
     dev: true
 
   /vite/2.9.1:
