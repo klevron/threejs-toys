@@ -34,7 +34,7 @@ Work in progress...
 ## Usage - npm
 
 ```
-npm install three three-js-toys
+npm install three threejs-toys
 ```
 ## Toys
 
