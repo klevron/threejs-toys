@@ -4,23 +4,22 @@ import {
   WebGLRenderer
 } from 'three'
 
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-
 import pointer from './pointer'
 
 export default function (params) {
   const options = {
+    el: null,
+    canvas: null,
+    width: null,
+    height: null,
+    resize: true,
     alpha: false,
     antialias: false,
-    // pointer: false,
     init () {},
     initCamera () {},
     initScene () {},
     afterResize () {},
     beforeRender () {},
-    // onPointerEnter () {},
-    // onPointerMove () {},
-    // onPointerLeave () {},
     ...params
   }
 
@@ -37,18 +36,24 @@ export default function (params) {
       startTime: 0,
       time: 0,
       elapsed: 0
-    }
+    },
+    options
   }
-
-  let cameraCtrl
 
   init()
 
   return three
 
   function init () {
-    const canvas = document.createElement('canvas')
-    options.el.appendChild(canvas)
+    let canvas
+    if (options.el) {
+      canvas = document.createElement('canvas')
+      options.el.appendChild(canvas)
+    } else if (options.canvas) {
+      canvas = options.canvas
+    } else {
+      throw new Error('Missing parameter : el or canvas is required')
+    }
 
     options.init?.(three)
 
@@ -59,13 +64,10 @@ export default function (params) {
     three.camera.position.z = 50
     options.initCamera?.(three)
 
-    // cameraCtrl = new OrbitControls(three.camera, three.renderer.domElement)
-    cameraCtrl = new OrbitControls(three.camera, document.body)
-    cameraCtrl.enableDamping = true
-    cameraCtrl.dampingFactor = 0.1
-
     resize()
-    window.addEventListener('resize', resize)
+    if (options.resize) {
+      window.addEventListener('resize', resize)
+    }
 
     three.scene = new Scene()
     options.initScene?.(three)
@@ -79,7 +81,6 @@ export default function (params) {
   }
 
   function initPointer () {
-    // if (!options.pointer) return
     const pointerOptions = {}
     if (options.onPointerEnter) { pointerOptions.onEnter = options.onPointerEnter }
     if (options.onPointerMove) { pointerOptions.onMove = options.onPointerMove }
@@ -96,16 +97,23 @@ export default function (params) {
 
     options.beforeRender(three)
 
-    if (cameraCtrl) cameraCtrl.update()
-
     three.renderer.render(three.scene, three.camera)
     requestAnimationFrame(animate)
   }
 
   function resize () {
-    const parent = three.renderer.domElement.parentElement
-    three.width = parent.clientWidth
-    three.height = parent.clientHeight
+    if (!options.resize) {
+      three.width = options.width
+      three.height = options.height
+    } else if (options.resize === 'window') {
+      three.width = window.innerWidth
+      three.height = window.innerHeight
+    } else {
+      const parent = three.renderer.domElement.parentElement
+      three.width = parent.clientWidth
+      three.height = parent.clientHeight
+    }
+
     three.renderer.setSize(three.width, three.height)
     three.camera.aspect = three.width / three.height
     three.camera.updateProjectionMatrix()
