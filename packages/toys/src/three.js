@@ -4,6 +4,8 @@ import {
   WebGLRenderer
 } from 'three'
 
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+
 import pointer from './pointer'
 
 export default function (params) {
@@ -40,6 +42,8 @@ export default function (params) {
     options
   }
 
+  // let cameraCtrl
+
   init()
 
   return three
@@ -64,8 +68,13 @@ export default function (params) {
     three.camera.position.z = 50
     options.initCamera?.(three)
 
+    // cameraCtrl = new OrbitControls(three.camera, three.renderer.domElement)
+    // cameraCtrl = new OrbitControls(three.camera, document.body)
+    // cameraCtrl.enableDamping = true
+    // cameraCtrl.dampingFactor = 0.1
+
     resize()
-    if (options.resize) {
+    if (options.resize && !options.width && !options.height) {
       window.addEventListener('resize', resize)
     }
 
@@ -86,7 +95,7 @@ export default function (params) {
     if (options.onPointerMove) { pointerOptions.onMove = options.onPointerMove }
     if (options.onPointerMove) { pointerOptions.onLeave = options.onPointerLeave }
     if (Object.keys(pointerOptions).length > 0) {
-      three.pointer = pointer({ domElement: options.el, ...pointerOptions })
+      three.pointer = pointer({ domElement: three.renderer.domElement, ...pointerOptions })
     }
   }
 
@@ -97,12 +106,14 @@ export default function (params) {
 
     options.beforeRender(three)
 
+    // if (cameraCtrl) cameraCtrl.update()
+
     three.renderer.render(three.scene, three.camera)
     requestAnimationFrame(animate)
   }
 
   function resize () {
-    if (!options.resize) {
+    if (options.width && options.height) {
       three.width = options.width
       three.height = options.height
     } else if (options.resize === 'window') {

@@ -63,8 +63,14 @@ export default function (params) {
 
   const mouseTarget = new Vector2()
 
+  const threeConfig = {}
+  const keys = ['el', 'canvas', 'width', 'height', 'resize']
+  keys.forEach(key => {
+    if (params[key] !== undefined) threeConfig[key] = params[key]
+  })
+
   three({
-    el: params.el,
+    ...threeConfig,
     antialias: true,
     initScene ({ camera, scene, wWidth, wHeight }) {
       mesh.scale.set(wWidth * 2, wHeight * 2, 1)

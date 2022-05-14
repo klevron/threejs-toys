@@ -32,10 +32,15 @@ export default function (params) {
   let plane
   let hover = false
 
+  const threeConfig = {}
+  const keys = ['el', 'canvas', 'width', 'height', 'resize']
+  keys.forEach(key => {
+    if (params[key] !== undefined) threeConfig[key] = params[key]
+  })
+
   three({
-    el: params.el,
+    ...threeConfig,
     antialias: false,
-    // init () {},
     initCamera (three) {
       three.camera = new OrthographicCamera()
     },
