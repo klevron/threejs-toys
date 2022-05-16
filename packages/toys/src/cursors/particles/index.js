@@ -1,13 +1,12 @@
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, HalfFloatType, MathUtils, Points, ShaderMaterial, Vector2 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
 import three from '../../three'
-import psrdnoise from '../../glsl/psrdnoise3.glsl'
 import { colorScale } from '../../tools/color'
+import psrdnoise from '../../glsl/psrdnoise3.glsl'
 
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  // colors: [Math.random() * 0xffffff, Math.random() * 0xffffff],
   gpgpuSize: 256,
   colors: [0x00ff00, 0x0000ff],
   color: 0xff0000,
@@ -57,9 +56,7 @@ export default function (params) {
       initParticles()
       scene.add(mesh)
     },
-    // afterResize ({ width, height }) {
-    // },
-    beforeRender ({ width, height, wWidth, wHeight, clock, pointer }) {
+    beforeRender ({ width, wWidth, wHeight, clock, pointer }) {
       if (!hover) {
         const t1 = clock.time * config.sleepTimeCoefX
         const t2 = clock.time * config.sleepTimeCoefY
