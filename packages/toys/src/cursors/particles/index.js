@@ -1,13 +1,21 @@
-import { AdditiveBlending, BufferAttribute, BufferGeometry, HalfFloatType, MathUtils, Points, ShaderMaterial, Vector2 } from 'three'
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, HalfFloatType, MathUtils, Points, ShaderMaterial, Vector2 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
-import psrdnoise from '../../glsl/psrdnoise3.glsl'
 import three from '../../three'
+import psrdnoise from '../../glsl/psrdnoise3.glsl'
 import { colorScale } from '../../tools/color'
 
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  colors: [Math.random() * 0xffffff, Math.random() * 0xffffff]
+  colors: [Math.random() * 0xffffff, Math.random() * 0xffffff],
+  // colors: [0x00ff00, 0x0000ff],
+  color: 0xff0000,
+  noiseIntensity: 0.0005,
+  pointSize: 5,
+  sleepRadiusX: 200,
+  sleepRadiusY: 200,
+  sleepTimeCoefX: 0.001,
+  sleepTimeCoefY: 0.001
 }
 
 export default function (params) {
@@ -19,16 +27,20 @@ export default function (params) {
   let gpu
   let dtPosition, dtVelocity
   let velocityVariable, positionVariable
-  let velocityUniforms, positionUniforms
 
   const uTime = { value: 0 }
-  const uCoordScale = { value: 0.5 }
+  const uCoordScale = { value: 1.5 }
+  const uNoiseIntensity = { value: config.noiseIntensity }
+  const uPointSize = { value: config.pointSize }
+  const uColor = { value: new Color(config.color) }
   const uMouse = { value: new Vector2() }
   const uMouseDirection = { value: new Vector2() }
-
-  const mouseTarget = new Vector2()
+  const uniforms = { uTime, uCoordScale, uNoiseIntensity, uPointSize, uColor, uMouse, uMouseDirection }
 
   let geometry, material, mesh
+
+  let hover = false
+  const mouseTarget = new Vector2()
 
   three({
     ...commonConfig(params),
@@ -40,27 +52,40 @@ export default function (params) {
       initParticles()
       scene.add(mesh)
     },
-    afterResize ({ width, height }) {
-    },
+    // afterResize ({ width, height }) {
+    // },
     beforeRender ({ width, height, wWidth, wHeight, clock, pointer }) {
-      mouseTarget.x = pointer.nPosition.x * 0.5 * wWidth
-      mouseTarget.y = pointer.nPosition.y * 0.5 * wHeight
-      uMouse.value.lerp(mouseTarget, 0.05)
-      // uMouseDirection.value.copy(pointer.delta)
+      if (!hover) {
+        const t1 = clock.time * config.sleepTimeCoefX
+        const t2 = clock.time * config.sleepTimeCoefY
+        const cos = Math.cos(t1)
+        const sin = Math.sin(t2)
+        const r1 = config.sleepRadiusX * wWidth / width
+        const r2 = config.sleepRadiusY * wWidth / width
+        mouseTarget.x = r1 * cos
+        mouseTarget.y = r2 * sin
+        uMouse.value.lerp(mouseTarget, 0.05)
+      } else {
+        mouseTarget.x = pointer.nPosition.x * 0.5 * wWidth
+        mouseTarget.y = pointer.nPosition.y * 0.5 * wHeight
+        uMouse.value.lerp(mouseTarget, 0.05)
+      }
 
       uTime.value = clock.time
       gpu.compute()
       material.uniforms.texturePosition.value = gpu.getCurrentRenderTarget(positionVariable).texture
       material.uniforms.textureVelocity.value = gpu.getCurrentRenderTarget(velocityVariable).texture
     },
-    onPointerMove ({ position, nPosition, delta }) {
+    onPointerMove ({ delta }) {
+      hover = true
       uMouseDirection.value.copy(delta)
     },
     onPointerLeave () {
+      hover = false
     }
   })
 
-  return { config }
+  return { config, uniforms }
 
   /**
    */
@@ -78,6 +103,7 @@ export default function (params) {
       ${psrdnoise}
       uniform float uTime;
       uniform float uCoordScale;
+      uniform float uNoiseIntensity;
       uniform vec2 uMouse;
       uniform vec2 uMouseDirection;
       void main() {
@@ -92,8 +118,8 @@ export default function (params) {
         } else {
           vec3 grad;
           vec3 p = vec3(0.0);
-          float n = psrdnoise(pos.xyz * uCoordScale, p, 0.0, grad);
-          vel.xyz += grad * 0.0005 * pos.w;
+          float n = psrdnoise(pos.xyz * uCoordScale, p, uTime * 0.0001, grad);
+          vel.xyz += grad * uNoiseIntensity * pos.w;
           // vel.z = 0.05;
         }
         gl_FragColor = vel;
@@ -125,17 +151,10 @@ export default function (params) {
     gpu.setVariableDependencies(velocityVariable, [positionVariable, velocityVariable])
     gpu.setVariableDependencies(positionVariable, [positionVariable, velocityVariable])
 
-    velocityUniforms = velocityVariable.material.uniforms
-    velocityUniforms.uTime = uTime
-    velocityUniforms.uCoordScale = uCoordScale
-    velocityUniforms.uMouse = uMouse
-    velocityUniforms.uMouseDirection = uMouseDirection
-
-    positionUniforms = positionVariable.material.uniforms
-    positionUniforms.uTime = uTime
-    positionUniforms.uCoordScale = uCoordScale
-    positionUniforms.uMouse = uMouse
-    positionUniforms.uMouseDirection = uMouseDirection
+    Object.keys(uniforms).forEach(key => {
+      velocityVariable.material.uniforms[key] = uniforms[key]
+      positionVariable.material.uniforms[key] = uniforms[key]
+    })
 
     const error = gpu.init()
     if (error !== null) {
@@ -143,6 +162,8 @@ export default function (params) {
     }
   }
 
+  /**
+   */
   function initParticles () {
     geometry = new BufferGeometry()
     const positions = new Float32Array(COUNT * 3)
@@ -182,11 +203,14 @@ export default function (params) {
       vertexColors: true,
       uniforms: {
         texturePosition: { value: null },
-        textureVelocity: { value: null }
+        textureVelocity: { value: null },
+        uPointSize,
+        uColor
       },
       vertexShader: `
         uniform sampler2D texturePosition;
         uniform sampler2D textureVelocity;
+        uniform float uPointSize;
         varying vec4 vPos;
         varying vec4 vVel;
         varying vec3 vCol;
@@ -195,20 +219,22 @@ export default function (params) {
           vPos = texture2D(texturePosition, uv);
           vVel = texture2D(textureVelocity, uv);
           vec4 mvPosition = modelViewMatrix * vec4(vPos.xyz, 1.0);
-          // gl_PointSize = length(vel.xyz) * 100.0;
-          gl_PointSize = vPos.w * 3.0;
+          // gl_PointSize = smoothstep(0.0, 2.0, vPos.w) * uPointSize;
+          gl_PointSize = vPos.w * 0.5 * uPointSize;
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
+        uniform vec3 uColor;
         varying vec4 vPos;
         varying vec4 vVel;
         varying vec3 vCol;
         void main() {
-          // gl_FragColor = vec4(vPos.w, 0.5, 0.2, vPos.w);
-          gl_FragColor = vec4(mix(vCol, vec3(1, 0, 0), vPos.w * 0.5), vPos.w * 0.5);
-          // gl_FragColor = vec4(mix(vCol, vec3(0, 0, 1), vPos.w * 0.5), vPos.w * 0.5);
-          // gl_FragColor = vec4(vCol, vPos.w * 0.5);
+          float dist = length(gl_PointCoord - 0.5);
+          if (dist > 0.5) discard;
+          // float a = smoothstep(0.0, 2.0, vPos.w);
+          float a = vPos.w * 0.5;
+          gl_FragColor = vec4(mix(vCol, uColor, a), a);
         }
       `
     })
@@ -224,15 +250,15 @@ export default function (params) {
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = 0 // rndFS(100)
-      posArray[k + 1] = 0 // rndFS(100)
-      posArray[k + 2] = 0 // rndFS(100)
-      posArray[k + 3] = rnd(0.1, 2)
+      posArray[k + 0] = rndFS(1)
+      posArray[k + 1] = rndFS(1)
+      posArray[k + 2] = rndFS(1)
+      posArray[k + 3] = rnd(0.25, 2)
 
       velArray[k + 0] = 0 // rndFS(0.2)
       velArray[k + 1] = 0 // rndFS(0.2)
       velArray[k + 2] = 0 // rndFS(0.2)
-      velArray[k + 3] = rnd(0.1, 2)
+      velArray[k + 3] = rnd(0.25, 2)
     }
   }
 }
