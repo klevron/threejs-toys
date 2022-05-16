@@ -3,16 +3,7 @@ import glsl from 'rollup-plugin-glsl'
 import { nodeResolve } from '@rollup/plugin-node-resolve'
 import replace from '@rollup/plugin-replace'
 
-const external = [
-  'three'
-]
-
-const cdnReplaces = {
-  'from \'three\'': 'from \'https://unpkg.com/three@0.140.0/build/three.module.js\'',
-  delimiters: ['', '']
-}
-
-function createConfig (format, outputFile, plugins = [], minify = false) {
+function createConfig (format, outputFile, external, plugins = [], minify = false) {
   return {
     input: 'src/export.js',
     external,
@@ -22,11 +13,10 @@ function createConfig (format, outputFile, plugins = [], minify = false) {
       sourcemap: true
     },
     plugins: [
-      nodeResolve(),
+      ...plugins,
       glsl({
         include: 'src/glsl/**/*.glsl'
       }),
-      ...plugins,
       esbuild({
         minify,
         target: 'es2019'
@@ -35,9 +25,18 @@ function createConfig (format, outputFile, plugins = [], minify = false) {
   }
 }
 
+const threeCdn = 'https://unpkg.com/three@0.140.0/build/three.module.js'
+
+const cdnReplaces = {
+  'from \'three\'': `from '${threeCdn}'`,
+  delimiters: ['', '']
+}
+
+const external = ['three', 'three/examples/jsm/misc/GPUComputationRenderer.js']
+
 export default [
-  createConfig('es', 'build/threejs-toys.module.js', [], false),
-  createConfig('es', 'build/threejs-toys.module.min.js', [], true),
-  createConfig('es', 'build/threejs-toys.module.cdn.js', [replace(cdnReplaces)], false),
-  createConfig('es', 'build/threejs-toys.module.cdn.min.js', [replace(cdnReplaces)], true)
+  createConfig('es', 'build/threejs-toys.module.js', external, [], false),
+  createConfig('es', 'build/threejs-toys.module.min.js', external, [], true),
+  createConfig('es', 'build/threejs-toys.module.cdn.js', [threeCdn], [nodeResolve(), replace(cdnReplaces)], false),
+  createConfig('es', 'build/threejs-toys.module.cdn.min.js', [threeCdn], [nodeResolve(), replace(cdnReplaces)], true)
 ]
