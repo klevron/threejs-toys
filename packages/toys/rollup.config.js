@@ -1,5 +1,6 @@
 import esbuild from 'rollup-plugin-esbuild'
 import glsl from 'rollup-plugin-glsl'
+import { nodeResolve } from '@rollup/plugin-node-resolve'
 import replace from '@rollup/plugin-replace'
 
 const external = [
@@ -21,10 +22,11 @@ function createConfig (format, outputFile, plugins = [], minify = false) {
       sourcemap: true
     },
     plugins: [
-      ...plugins,
+      nodeResolve(),
       glsl({
         include: 'src/glsl/**/*.glsl'
       }),
+      ...plugins,
       esbuild({
         minify,
         target: 'es2019'

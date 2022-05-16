@@ -6,6 +6,7 @@
     "rollup": "rollup -c"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-replace": "^4.0.0",
     "eslint": "^7.32.0",
     "eslint-config-standard": "^16.0.3",
