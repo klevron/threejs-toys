@@ -113,7 +113,7 @@ export default function (params) {
         vec4 pos = texture2D(texturePosition, uv);
         vec4 vel = texture2D(textureVelocity, uv);
 
-        if (pos.w == -1.0) {
+        if (pos.w < 0.0) {
           vel.x = 0.0;
           vel.y = 0.0;
           vel.z = 0.0;
@@ -122,8 +122,6 @@ export default function (params) {
           vec3 p = vec3(0.0);
           float n = psrdnoise(pos.xyz * uCoordScale, p, uTime, grad);
           vel.xyz += grad * uNoiseIntensity * pos.w;
-          // vel.z = abs(vel.z) * 1.01;
-          // vel.z = -0.05;
         }
         gl_FragColor = vel;
       }
@@ -137,12 +135,11 @@ export default function (params) {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 pos = texture2D(texturePosition, uv);
         vec4 vel = texture2D(textureVelocity, uv);
-        if (pos.w == -1.0) { pos.w = vel.w; }
+        if (pos.w < 0.0) { pos.w = vel.w; }
         pos.w -= uPointDecay;
         if (pos.w <= 0.0) {
           pos.xy = uMouse.xy;
           pos.z = 0.0;
-          pos.w = -1.0;
         } else {
           pos.xyz += vel.xyz;
         }
