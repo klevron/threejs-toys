@@ -7,8 +7,8 @@ import { colorScale } from '../../tools/color'
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  colors: [Math.random() * 0xffffff, Math.random() * 0xffffff],
-  // colors: [0x00ff00, 0x0000ff],
+  // colors: [Math.random() * 0xffffff, Math.random() * 0xffffff],
+  colors: [0x00ff00, 0x0000ff],
   color: 0xff0000,
   noiseIntensity: 0.001,
   noiseTimeCoef: 0.0001,
