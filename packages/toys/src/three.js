@@ -95,7 +95,7 @@ export default function (params) {
     if (options.onPointerMove) { pointerOptions.onMove = options.onPointerMove }
     if (options.onPointerMove) { pointerOptions.onLeave = options.onPointerLeave }
     if (Object.keys(pointerOptions).length > 0) {
-      three.pointer = pointer({ domElement: three.renderer.domElement, ...pointerOptions })
+      three.pointer = pointer({ domElement: options.el ?? options.canvas, ...pointerOptions })
     }
   }
 
