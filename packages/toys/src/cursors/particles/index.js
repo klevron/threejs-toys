@@ -10,8 +10,10 @@ const defaultConfig = {
   colors: [Math.random() * 0xffffff, Math.random() * 0xffffff],
   // colors: [0x00ff00, 0x0000ff],
   color: 0xff0000,
-  noiseIntensity: 0.0005,
+  noiseIntensity: 0.001,
+  noiseTimeCoef: 0.0001,
   pointSize: 5,
+  pointDecay: 0.005,
   sleepRadiusX: 200,
   sleepRadiusY: 200,
   sleepTimeCoefX: 0.001,
@@ -32,10 +34,11 @@ export default function (params) {
   const uCoordScale = { value: 1.5 }
   const uNoiseIntensity = { value: config.noiseIntensity }
   const uPointSize = { value: config.pointSize }
+  const uPointDecay = { value: config.pointDecay }
   const uColor = { value: new Color(config.color) }
   const uMouse = { value: new Vector2() }
   const uMouseDirection = { value: new Vector2() }
-  const uniforms = { uTime, uCoordScale, uNoiseIntensity, uPointSize, uColor, uMouse, uMouseDirection }
+  const uniforms = { uTime, uCoordScale, uNoiseIntensity, uPointSize, uPointDecay, uColor, uMouse, uMouseDirection }
 
   let geometry, material, mesh
 
@@ -64,14 +67,13 @@ export default function (params) {
         const r2 = config.sleepRadiusY * wWidth / width
         mouseTarget.x = r1 * cos
         mouseTarget.y = r2 * sin
-        uMouse.value.lerp(mouseTarget, 0.05)
       } else {
         mouseTarget.x = pointer.nPosition.x * 0.5 * wWidth
         mouseTarget.y = pointer.nPosition.y * 0.5 * wHeight
-        uMouse.value.lerp(mouseTarget, 0.05)
       }
+      uMouse.value.lerp(mouseTarget, 0.05)
 
-      uTime.value = clock.time
+      uTime.value = clock.time * config.noiseTimeCoef
       gpu.compute()
       material.uniforms.texturePosition.value = gpu.getCurrentRenderTarget(positionVariable).texture
       material.uniforms.textureVelocity.value = gpu.getCurrentRenderTarget(velocityVariable).texture
@@ -104,8 +106,6 @@ export default function (params) {
       uniform float uTime;
       uniform float uCoordScale;
       uniform float uNoiseIntensity;
-      uniform vec2 uMouse;
-      uniform vec2 uMouseDirection;
       void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 pos = texture2D(texturePosition, uv);
@@ -118,17 +118,17 @@ export default function (params) {
         } else {
           vec3 grad;
           vec3 p = vec3(0.0);
-          float n = psrdnoise(pos.xyz * uCoordScale, p, uTime * 0.0001, grad);
+          float n = psrdnoise(pos.xyz * uCoordScale, p, uTime, grad);
           vel.xyz += grad * uNoiseIntensity * pos.w;
-          // vel.z = 0.05;
+          // vel.z = abs(vel.z) * 1.01;
+          // vel.z = -0.05;
         }
         gl_FragColor = vel;
       }
     `, dtVelocity)
 
     positionVariable = gpu.addVariable('texturePosition', `
-      uniform float uTime;
-      uniform float uCoordScale;
+      uniform float uPointDecay;
       uniform vec2 uMouse;
       uniform vec2 uMouseDirection;
       void main() {
@@ -136,7 +136,7 @@ export default function (params) {
         vec4 pos = texture2D(texturePosition, uv);
         vec4 vel = texture2D(textureVelocity, uv);
         if (pos.w == -1.0) { pos.w = vel.w; }
-        pos.w -= 0.008;
+        pos.w -= uPointDecay;
         if (pos.w <= 0.0) {
           pos.xy = uMouse.xy;
           pos.z = 0.0;
@@ -220,7 +220,7 @@ export default function (params) {
           vVel = texture2D(textureVelocity, uv);
           vec4 mvPosition = modelViewMatrix * vec4(vPos.xyz, 1.0);
           // gl_PointSize = smoothstep(0.0, 2.0, vPos.w) * uPointSize;
-          gl_PointSize = vPos.w * 0.5 * uPointSize;
+          gl_PointSize = vPos.w * uPointSize;
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -232,9 +232,8 @@ export default function (params) {
         void main() {
           float dist = length(gl_PointCoord - 0.5);
           if (dist > 0.5) discard;
-          // float a = smoothstep(0.0, 2.0, vPos.w);
-          float a = vPos.w * 0.5;
-          gl_FragColor = vec4(mix(vCol, uColor, a), a);
+          // float a = smoothstep(0.0, 1.0, vPos.w);
+          gl_FragColor = vec4(mix(vCol, uColor, vPos.w), vPos.w);
         }
       `
     })
@@ -252,13 +251,13 @@ export default function (params) {
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
       posArray[k + 0] = rndFS(1)
       posArray[k + 1] = rndFS(1)
-      posArray[k + 2] = rndFS(1)
-      posArray[k + 3] = rnd(0.25, 2)
+      posArray[k + 2] = -100000
+      posArray[k + 3] = rnd(0.1, 1)
 
       velArray[k + 0] = 0 // rndFS(0.2)
       velArray[k + 1] = 0 // rndFS(0.2)
       velArray[k + 2] = 0 // rndFS(0.2)
-      velArray[k + 3] = rnd(0.25, 2)
+      velArray[k + 3] = rnd(0.1, 1)
     }
   }
 }
