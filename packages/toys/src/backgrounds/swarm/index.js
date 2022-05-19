@@ -1,4 +1,4 @@
-import { AmbientLight, BoxGeometry, CapsuleGeometry, ConeGeometry, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, Plane, PointLight, Raycaster, Vector3 } from 'three'
+import { AmbientLight, BoxGeometry, CapsuleGeometry, ConeGeometry, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, OctahedronGeometry, Plane, PointLight, Raycaster, SphereGeometry, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
 import three from '../../three'
 import { colorScale } from '../../tools/color'
@@ -7,7 +7,7 @@ import psrdnoise from '../../glsl/psrdnoise3.glsl'
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  gpgpuSize: 128,
+  gpgpuSize: 64,
   colors: [0x00ff00, 0x0000ff],
   color: 0xff0000
 }
@@ -146,7 +146,9 @@ export default function (params) {
 
     // geometry = new CapsuleGeometry(0.2, 1, 4, 8).rotateX(Math.PI / 2)
     geometry = new ConeGeometry(0.2, 1, 6).rotateX(Math.PI / 2)
-    // geometry = new BoxGeometry()
+    // geometry = new BoxGeometry(0.5, 0.5, 0.5)
+    // geometry = new OctahedronGeometry(1, 0).rotateX(Math.PI / 2)
+    // geometry = new SphereGeometry(0.5, 8, 8)
 
     const gpuUvs = new Float32Array(COUNT * 2)
     let index = 0
