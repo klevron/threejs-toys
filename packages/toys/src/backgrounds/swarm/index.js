@@ -1,5 +1,9 @@
-import { AmbientLight, BoxGeometry, CapsuleGeometry, ConeGeometry, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, OctahedronGeometry, Plane, PointLight, Raycaster, SphereGeometry, Vector3 } from 'three'
+import { AmbientLight, BoxGeometry, BufferAttribute, BufferGeometry, CapsuleGeometry, ConeGeometry, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, OctahedronGeometry, Plane, PointLight, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+
 import three from '../../three'
 import { colorScale } from '../../tools/color'
 import psrdnoise from '../../glsl/psrdnoise3.glsl'
@@ -7,7 +11,7 @@ import psrdnoise from '../../glsl/psrdnoise3.glsl'
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  gpgpuSize: 64,
+  gpgpuSize: 512,
   colors: [0x00ff00, 0x0000ff],
   color: 0xff0000
 }
@@ -30,7 +34,11 @@ export default function (params) {
   const uMouseDirection = { value: new Vector3() }
   const uniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity, uTime, uMouse, uMouseDirection }
 
+  let effectComposer
+  let renderPass, bloomPass
+
   let camera
+  let light
   let geometry, material, iMesh
 
   const mousePlane = new Plane(new Vector3(0, 0, 1), 0)
@@ -45,13 +53,29 @@ export default function (params) {
     },
     initCamera (three) {
       camera = three.camera
-      camera.position.z = 100
+      camera.position.z = 70
     },
-    initScene ({ scene }) {
+    initScene ({ renderer, width, height, camera, scene }) {
       initScene(scene)
+
+      renderPass = new RenderPass(scene, camera)
+
+      bloomPass = new UnrealBloomPass(new Vector2(width, height), 1.5, 0.5, 0.25)
+      // bloomPass.threshold = params.bloomThreshold
+      // bloomPass.strength = params.bloomStrength
+      // bloomPass.radius = params.bloomRadius
+
+      effectComposer = new EffectComposer(renderer)
+      effectComposer.addPass(renderPass)
+      effectComposer.addPass(bloomPass)
+    },
+    afterResize ({ width, height }) {
+      if (effectComposer) effectComposer.setSize(width, height)
     },
     beforeRender ({ clock }) {
-      uTime.value = clock.time * config.noiseTimeCoef
+      light.position.lerp(mousePosition, 0.05)
+
+      uTime.value = clock.time
       uMouse.value.copy(mousePosition)
 
       gpu.compute()
@@ -59,8 +83,12 @@ export default function (params) {
       uOldTexturePosition.value = positionVariable.renderTargets[gpu.currentTextureIndex === 0 ? 1 : 0].texture
       uTextureVelocity.value = velocityVariable.renderTargets[gpu.currentTextureIndex].texture
     },
+    render () {
+      effectComposer.render()
+    },
     onPointerMove ({ nPosition }) {
       raycaster.setFromCamera(nPosition, camera)
+      camera.getWorldDirection(mousePlane.normal)
       raycaster.ray.intersectPlane(mousePlane, mousePosition)
     },
     onPointerLeave () {
@@ -91,15 +119,15 @@ export default function (params) {
         vec4 pos = texture2D(texturePosition, uv);
         vec4 vel = texture2D(textureVelocity, uv);
 
-        // vec3 grad;
-        // float n = psrdnoise(pos.xyz * 0.1, vec3(0), 0.0, grad);
-        // grad *= 0.001;
-        // vel.xyz = vel.xyz + pos.w * (grad + 0.02 * normalize(uMouse - pos.xyz));
+        vec3 grad;
+        float n = psrdnoise(pos.xyz * 0.01, vec3(0), uTime * 0.0004, grad);
+        vel.xyz += grad * 0.0025;
+        vel.xyz = clamp(vel.xyz, -0.25, 0.25);
 
-        // vel.xyz = vel.xyz + pos.w * 0.005 * normalize(uMouse - pos.xyz);
+        // vel.xyz = vel.xyz + pos.w * 0.005 * clamp(normalize(uMouse - pos.xyz), -0.5, 0.5);
+        // vel.xyz = clamp(vel.xyz, -0.1, 0.1);
+        // vel.xyz = vel.xyz + pos.w * 0.01 * normalize(uMouse - pos.xyz);
         // vel.xyz = clamp(vel.xyz, -0.25, 0.25);
-        vel.xyz = vel.xyz + pos.w * 0.01 * normalize(uMouse - pos.xyz);
-        vel.xyz = clamp(vel.xyz, -0.5, 0.5);
         gl_FragColor = vel;
       }
     `, dtVelocity)
@@ -136,19 +164,31 @@ export default function (params) {
   function initScene (scene) {
     scene.add(new AmbientLight(0xffffff, 0.25))
 
+    light = new PointLight(0xffffff, 1)
+    scene.add(light)
+
     const light1 = new PointLight(0xff9060, 0.75)
-    light1.position.set(-100, -100, 0)
+    light1.position.set(0, -100, -100)
     scene.add(light1)
 
     const light2 = new PointLight(0x6090ff, 0.75)
-    light2.position.set(100, 100, 0)
+    light2.position.set(0, 100, 100)
     scene.add(light2)
 
+    // const light3 = new PointLight(0x60ff90, 0.75)
+    // light3.position.set(-100, 100, 0)
+    // scene.add(light3)
+
+    // const light4 = new PointLight(0xffffff, 0.75)
+    // light4.position.set(100, -100, 0)
+    // scene.add(light4)
+
     // geometry = new CapsuleGeometry(0.2, 1, 4, 8).rotateX(Math.PI / 2)
-    geometry = new ConeGeometry(0.2, 1, 6).rotateX(Math.PI / 2)
-    // geometry = new BoxGeometry(0.5, 0.5, 0.5)
-    // geometry = new OctahedronGeometry(1, 0).rotateX(Math.PI / 2)
+    // geometry = new ConeGeometry(0.2, 1, 6).rotateX(Math.PI / 2)
+    // geometry = new BoxGeometry(0.2, 0.2, 1)
+    // geometry = new OctahedronGeometry(0.5, 0).rotateX(Math.PI / 2)
     // geometry = new SphereGeometry(0.5, 8, 8)
+    geometry = customGeometry(1)
 
     const gpuUvs = new Float32Array(COUNT * 2)
     let index = 0
@@ -164,7 +204,10 @@ export default function (params) {
       color: 0xffffff,
       metalness: 0.75,
       roughness: 0.25,
+      // transparent: true,
+      // opacity: 0.85,
       // flatShading: true,
+      side: DoubleSide,
       onBeforeCompile: shader => {
         Object.keys(uniforms).forEach(key => {
           shader.uniforms[key] = uniforms[key]
@@ -217,6 +260,7 @@ export default function (params) {
           transformedNormal = normalMatrix * transformedNormal;
         `)
         shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+          // transformed.z *= length(vVel) * 2.0;
           vec4 mvPosition = modelViewMatrix * im * vec4(transformed, 1.0);
           gl_Position = projectionMatrix * mvPosition;
         `)
@@ -245,9 +289,9 @@ export default function (params) {
       posArray[k + 2] = rndFS(100)
       posArray[k + 3] = rnd(0.1, 1)
 
-      velArray[k + 0] = rndFS(0.2)
-      velArray[k + 1] = rndFS(0.2)
-      velArray[k + 2] = rndFS(0.2)
+      velArray[k + 0] = rndFS(0.5)
+      velArray[k + 1] = rndFS(0.5)
+      velArray[k + 2] = rndFS(0.5)
       velArray[k + 3] = 0
     }
   }
@@ -262,4 +306,31 @@ function commonConfig (params) {
     if (params[key] !== undefined) config[key] = params[key]
   })
   return config
+}
+
+function customGeometry (size) {
+  const vertices = [
+    { p: [size * 0.5, 0, -size], n: [0, 1, 0] },
+    { p: [-size * 0.5, 0, -size], n: [0, 1, 0] },
+    { p: [0, 0, size], n: [0, 1, 0] },
+    { p: [0, -size * 0.5, -size], n: [1, 0, 0] },
+    { p: [0, size * 0.5, -size], n: [1, 0, 0] },
+    { p: [0, 0, size], n: [1, 0, 0] }
+  ]
+
+  const indexes = [0, 1, 2, 3, 4, 5]
+
+  const positions = []
+  const normals = []
+  for (const vertex of vertices) {
+    positions.push(...vertex.p)
+    normals.push(...vertex.n)
+  }
+
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
+  geometry.setIndex(indexes)
+
+  return geometry
 }
