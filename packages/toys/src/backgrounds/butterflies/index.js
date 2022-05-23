@@ -1,23 +1,51 @@
-import { AmbientLight, BoxGeometry, BufferAttribute, BufferGeometry, CapsuleGeometry, Color, ConeGeometry, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, Plane, PlaneGeometry, PointLight, Raycaster, SphereGeometry, TextureLoader, Vector2, Vector3 } from 'three'
+import { AmbientLight, Color, DirectionalLight, DoubleSide, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshPhongMaterial, Object3D, Plane, PlaneGeometry, PointLight, Raycaster, TextureLoader, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 
 import three from '../../three'
-import { colorScale } from '../../tools/color'
 import psrdnoise from '../../glsl/psrdnoise3.glsl'
+import { colorScale } from '../../tools/color'
 
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
   gpgpuSize: 64,
-  colors: [0x00ff00, 0x0000ff],
-  color: 0xff0000
+  material: 'phong',
+  textures: [],
+  colors: [],
+  lights: [
+    { type: 'ambient', color: 0xffffff, intensity: 0.5 },
+    { type: 'directional', position: [0, 10, 0], color: 0xffffff, intensity: 1 }
+  ],
+  wingsWidthSegment: 8,
+  wingsHeightSegment: 8,
+  wingsSpeed: 0.75,
+  wingsDisplacementScale: 1.25,
+  noiseCoordScale: 0.01,
+  noiseTimeCoef: 0.0005,
+  noiseIntensity: 0.0025,
+  attractionRadius1: 100,
+  attractionRadius2: 150,
+  maxVelocity: 0.1
 }
 
 export default async function (params) {
   const config = { ...defaultConfig, ...params }
+
+  if (!['basic', 'phong'].includes(config.material)) {
+    throw new Error('material must be basic or phong')
+  }
+
+  if (!Array.isArray(config.textures) || !Array.isArray(config.colors)) {
+    throw new Error('textures/colors must be arrays')
+  }
+
+  const textures = []
+  if (config.textures.length > 0) {
+    const loader = new TextureLoader()
+    for (let i = 0; i < config.textures.length; i++) {
+      textures[i] = await loader.loadAsync(config.textures[i])
+    }
+  }
 
   const WIDTH = config.gpgpuSize
   const COUNT = WIDTH * WIDTH
@@ -30,27 +58,20 @@ export default async function (params) {
   const uOldTexturePosition = { value: null }
   const uTextureVelocity = { value: null }
   const uTime = { value: 0 }
-  const uMouse = { value: new Vector3() }
-  const uMouseDirection = { value: new Vector3() }
-  const uniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity, uTime, uMouse, uMouseDirection }
+  const uNoiseCoordScale = { value: config.noiseCoordScale }
+  const uNoiseIntensity = { value: config.noiseIntensity }
+  const uMaxVelocity = { value: config.maxVelocity }
+  const uAttractionRadius1 = { value: config.attractionRadius1 }
+  const uAttractionRadius2 = { value: config.attractionRadius2 }
+  const uWingsSpeed = { value: config.wingsSpeed }
+  const uWingsDisplacementScale = { value: config.wingsDisplacementScale }
 
-  let effectComposer
-  let renderPass, bloomPass
+  const gpuTexturesUniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity }
+  const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uWingsSpeed, uWingsDisplacementScale }
+  const uniforms = { ...gpuTexturesUniforms, ...commonUniforms }
 
   let camera
-  let light
   let geometry, material, iMesh
-
-  const tl = new TextureLoader()
-
-  const mousePlane = new Plane(new Vector3(0, 0, 1), 0)
-  const mousePosition = new Vector3()
-  const raycaster = new Raycaster()
-
-  const texture1 = await tl.loadAsync('/b1.png')
-  const texture2 = await tl.loadAsync('/b2.png')
-  const texture3 = await tl.loadAsync('/b3.png')
-  const texture4 = await tl.loadAsync('/b4.png')
 
   three({
     ...commonConfig(params),
@@ -60,46 +81,18 @@ export default async function (params) {
     },
     initCamera (three) {
       camera = three.camera
-      camera.position.z = 70
+      camera.position.set(0, 50, 70)
     },
-    initScene ({ renderer, width, height, camera, scene }) {
+    initScene ({ scene }) {
       initScene(scene)
-
-      renderPass = new RenderPass(scene, camera)
-
-      bloomPass = new UnrealBloomPass(new Vector2(width, height), 1.5, 0.5, 0.25)
-      // bloomPass.threshold = params.bloomThreshold
-      // bloomPass.strength = params.bloomStrength
-      // bloomPass.radius = params.bloomRadius
-
-      effectComposer = new EffectComposer(renderer)
-      effectComposer.addPass(renderPass)
-      effectComposer.addPass(bloomPass)
-    },
-    afterResize ({ width, height }) {
-      if (effectComposer) effectComposer.setSize(width, height)
     },
     beforeRender ({ clock }) {
-      // light.position.lerp(mousePosition, 0.05)
-
-      uTime.value = clock.time
-      uMouse.value.copy(mousePosition)
+      uTime.value = clock.time * config.noiseTimeCoef
 
       gpu.compute()
       uTexturePosition.value = positionVariable.renderTargets[gpu.currentTextureIndex].texture
       uOldTexturePosition.value = positionVariable.renderTargets[gpu.currentTextureIndex === 0 ? 1 : 0].texture
       uTextureVelocity.value = velocityVariable.renderTargets[gpu.currentTextureIndex].texture
-    },
-    // render () {
-    //   effectComposer.render()
-    // },
-    onPointerMove ({ nPosition }) {
-      raycaster.setFromCamera(nPosition, camera)
-      camera.getWorldDirection(mousePlane.normal)
-      raycaster.ray.intersectPlane(mousePlane, mousePosition)
-    },
-    onPointerLeave () {
-      mousePosition.set(0, 0, 0)
     }
   })
 
@@ -120,27 +113,28 @@ export default async function (params) {
     velocityVariable = gpu.addVariable('textureVelocity', `
       ${psrdnoise}
       uniform float uTime;
-      uniform vec3 uMouse;
+      uniform float uNoiseCoordScale;
+      uniform float uNoiseIntensity;
+      uniform float uMaxVelocity;
+      uniform float uAttractionRadius1;
+      uniform float uAttractionRadius2;
+      uniform float uWingsSpeed;
       void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 pos = texture2D(texturePosition, uv);
         vec4 vel = texture2D(textureVelocity, uv);
 
         vec3 grad;
-        float n = psrdnoise(pos.xyz * 0.01, vec3(0), uTime * 0.0004, grad);
-        vel.xyz += grad * pos.w * 0.002;
+        float n = psrdnoise(pos.xyz * uNoiseCoordScale, vec3(0), uTime, grad);
+        grad = grad * uNoiseIntensity;
+        vel.xyz = vel.xyz + (pos.w * 0.75) * grad;
 
         vec3 dv = -pos.xyz;
-        float coef = smoothstep(100.0, 1000.0, length(dv));
+        float coef = smoothstep(uAttractionRadius1, uAttractionRadius2, length(dv));
         vel.xyz = vel.xyz + pos.w * coef * normalize(dv);
-        vel.xyz = clamp(vel.xyz, -0.2, 0.2);
+        vel.xyz = clamp(vel.xyz, -uMaxVelocity, uMaxVelocity);
 
-        // vel.xyz = vel.xyz + pos.w * 0.005 * clamp(normalize(uMouse - pos.xyz), -0.5, 0.5);
-        // vel.xyz = clamp(vel.xyz, -0.1, 0.1);
-        // vel.xyz = vel.xyz + pos.w * 0.01 * normalize(uMouse - pos.xyz);
-        // vel.xyz = clamp(vel.xyz, -0.25, 0.25);
-
-        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * 0.5, 6.2831853071);
+        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * uWingsSpeed, 6.2831853071);
         gl_FragColor = vel;
       }
     `, dtVelocity)
@@ -148,7 +142,6 @@ export default async function (params) {
     positionVariable = gpu.addVariable('texturePosition', `
       ${psrdnoise}
       uniform float uTime;
-      uniform vec3 uMouse;
       void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 pos = texture2D(texturePosition, uv);
@@ -161,14 +154,14 @@ export default async function (params) {
     gpu.setVariableDependencies(velocityVariable, [positionVariable, velocityVariable])
     gpu.setVariableDependencies(positionVariable, [positionVariable, velocityVariable])
 
-    Object.keys({ uTime, uMouse }).forEach(key => {
+    Object.keys(commonUniforms).forEach(key => {
       velocityVariable.material.uniforms[key] = uniforms[key]
       positionVariable.material.uniforms[key] = uniforms[key]
     })
 
     const error = gpu.init()
     if (error !== null) {
-      console.error(error)
+      throw new Error(error)
     }
   }
 
@@ -176,134 +169,230 @@ export default async function (params) {
    */
   function initScene (scene) {
     scene.background = new Color(0xffffff)
-    geometry = new PlaneGeometry(4, 2.5, 6, 1).rotateX(Math.PI / 2)
 
-    const mapIndexes = new Int32Array(COUNT)
+    if (Array.isArray(config.lights) && config.lights.length > 0) {
+      let light
+      config.lights.forEach(lightConfig => {
+        switch (lightConfig.type) {
+          case 'ambient':
+            light = new AmbientLight(lightConfig.color, lightConfig.intensity)
+            break
+          case 'directional':
+            light = new DirectionalLight(lightConfig.color, lightConfig.intensity)
+            break
+          case 'point':
+            light = new PointLight(lightConfig.color, lightConfig.intensity)
+            break
+          default:
+            console.error(`Unknown light type ${lightConfig.type}`)
+        }
+        if (light) {
+          if (lightConfig.position) light.position.set(...lightConfig.position)
+          scene.add(light)
+        }
+      })
+    }
+
+    geometry = new PlaneGeometry(2, 2, config.wingsWidthSegment, config.wingsHeightSegment).rotateX(Math.PI / 2)
+
     const gpuUvs = new Float32Array(COUNT * 2)
+    const mapIndexes = new Int32Array(COUNT)
     let i1 = 0
     let i2 = 0
     for (let j = 0; j < WIDTH; j++) {
       for (let i = 0; i < WIDTH; i++) {
-        mapIndexes[i1++] = Math.floor(Math.random() * 4)
-        gpuUvs[i2++] = i / (WIDTH - 1)
-        gpuUvs[i2++] = j / (WIDTH - 1)
+        gpuUvs[i1++] = i / (WIDTH - 1)
+        gpuUvs[i1++] = j / (WIDTH - 1)
+        mapIndexes[i2++] = Math.floor(Math.random() * textures.length)
       }
     }
     geometry.setAttribute('gpuUv', new InstancedBufferAttribute(gpuUvs, 2))
     geometry.setAttribute('mapIndex', new InstancedBufferAttribute(mapIndexes, 1))
 
-    material = new MeshBasicMaterial({
-      // color: 0xffffff,
-      // metalness: 0.75,
-      // roughness: 0.25,
-      // transparent: true,
-      // opacity: 0.85,
-      // flatShading: true,
-      // metalness: 0,
-      // roughness: 1,
-      map: tl.load('/b4.png'),
-      side: DoubleSide,
-      transparent: true,
-      alphaTest: 0.5,
-      onBeforeCompile: (shader) => {
+    const materialParams = { side: DoubleSide }
+    if (textures.length > 0) {
+      materialParams.map = textures[0]
+      materialParams.transparent = true
+      materialParams.alphaTest = 0.5
+    }
+
+    materialParams.onBeforeCompile = shader => {
+      shader.defines = {
+        COMPUTE_NORMALS: config.material !== 'basic',
+        WINGS_WIDTH_SEGMENTS: config.wingsWidthSegment,
+        WINGS_HEIGHT_SEGMENTS: config.wingsHeightSegment,
+        WINGS_DX: (2.0 / config.wingsWidthSegment).toFixed(10), // force float
+        WINGS_DZ: (2.0 / config.wingsHeightSegment).toFixed(10) // force float
+      }
+      if (textures.length > 1) {
+        shader.defines.USE_MAPINDEX = true
+        shader.defines.NUM_TEXTURES = textures.length
         Object.keys(uniforms).forEach(key => {
           shader.uniforms[key] = uniforms[key]
         })
-        shader.uniforms.uMaps = {
-          value: [texture1, texture2, texture3, texture4]
-        }
-        shader.vertexShader = `
-          uniform sampler2D uTexturePosition;
-          uniform sampler2D uOldTexturePosition;
-          uniform sampler2D uTextureVelocity;
-          uniform float uTime;
-          uniform vec3 uMouse;
-          attribute vec2 gpuUv;
+      }
+      shader.uniforms.uMaps = { value: textures }
+      shader.vertexShader = `
+        uniform sampler2D uTexturePosition;
+        uniform sampler2D uOldTexturePosition;
+        uniform sampler2D uTextureVelocity;
+        uniform float uWingsDisplacementScale;
+        attribute vec2 gpuUv;
+        varying vec4 vPos;
+        varying vec4 vVel;
+
+        #ifdef USE_MAPINDEX
           attribute int mapIndex;
-          varying vec4 vPos;
-          varying vec4 vVel;
           flat out int vMapIndex;
+        #endif
 
-          mat3 lookAt(vec3 origin, vec3 target, vec3 up) {
-            vec3 z = target - origin;
-            if (z.x * z.x + z.y * z.y + z.z * z.z == 0.0) { z.z = 1.0; }
-            z = normalize(z);
-            vec3 x = cross(up, z);
-            if (x.x * x.x + x.y * x.y + x.z * x.z == 0.0) {
-              if (abs(up.z) == 1.0) { z.x += 0.0001; }
-              else { z.z += 0.0001; }
-              x = cross(up, z);
-            }
-            x = normalize(x);
-            vec3 y = cross(z, x);
-            return mat3(x, y, z);
+        mat3 lookAt(vec3 origin, vec3 target, vec3 up) {
+          vec3 z = target - origin;
+          if (z.x * z.x + z.y * z.y + z.z * z.z == 0.0) { z.z = 1.0; }
+          z = normalize(z);
+          vec3 x = cross(up, z);
+          if (x.x * x.x + x.y * x.y + x.z * x.z == 0.0) {
+            if (abs(up.z) == 1.0) { z.x += 0.0001; }
+            else { z.z += 0.0001; }
+            x = cross(up, z);
           }
+          x = normalize(x);
+          vec3 y = cross(z, x);
+          return mat3(x, y, z);
+        }
 
-          mat4 iMatrix(vec3 pos, mat3 rmat, float scale) {
-            return mat4(
-              rmat[0][0] * scale, rmat[0][1] * scale, rmat[0][2] * scale, 0.0,
-              rmat[1][0] * scale, rmat[1][1] * scale, rmat[1][2] * scale, 0.0,
-              rmat[2][0] * scale, rmat[2][1] * scale, rmat[2][2] * scale, 0.0,
-              pos.x, pos.y, pos.z, 1.0
-            );
-          }
-        ` + shader.vertexShader
-        shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
-          vPos = texture2D(uTexturePosition, gpuUv);
-          vec4 oldPos = texture2D(uOldTexturePosition, gpuUv);
-          vVel = texture2D(uTextureVelocity, gpuUv);
+        mat4 iMatrix(vec3 pos, mat3 rmat, vec3 scale) {
+          return mat4(
+            rmat[0][0] * scale.x, rmat[0][1] * scale.x, rmat[0][2] * scale.x, 0.0,
+            rmat[1][0] * scale.y, rmat[1][1] * scale.y, rmat[1][2] * scale.y, 0.0,
+            rmat[2][0] * scale.z, rmat[2][1] * scale.z, rmat[2][2] * scale.z, 0.0,
+            pos.x, pos.y, pos.z, 1.0
+          );
+        }
+      ` + shader.vertexShader
+      shader.vertexShader = shader.vertexShader.replace('#include <defaultnormal_vertex>', '')
+      shader.vertexShader = shader.vertexShader.replace('#include <normal_vertex>', '')
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+        vPos = texture2D(uTexturePosition, gpuUv);
+        vec4 oldPos = texture2D(uOldTexturePosition, gpuUv);
+        vVel = texture2D(uTextureVelocity, gpuUv);
+
+        #ifdef USE_MAPINDEX
           vMapIndex = mapIndex;
+        #endif
 
-          vec3 up =vec3(0, 1, 0); //  normalize(uMouse - vPos.xyz);
-          mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, up);
-          mat4 im = iMatrix(vPos.xyz, rmat, 0.5 + vPos.w);
+        mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
+        mat4 im = iMatrix(vPos.xyz, rmat, vec3(0.5 + vPos.w));
 
-          // transformed.z *= length(vVel) * 2.0;
-          float dx = abs(transformed.x);
-          if (dx > 0.0) {
-            dx = smoothstep(0.0, 2.0, dx * 0.75);
-            transformed.y = sin(vVel.w - dx) * abs(transformed.x);
-          }
-          // transformed.y = vVel.z;
-          vec4 mvPosition = modelViewMatrix * im * vec4(transformed, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-        `)
+        vec3 transformed = vec3(position);
 
+        #ifdef COMPUTE_NORMALS
+          vec3 transformedNormal = objectNormal; 
+        #endif
+
+        float dx = abs(transformed.x);
+        if (dx > 0.0) {
+          float sdx = smoothstep(0.0, 1.0 + WINGS_DX, dx);
+          #if WINGS_HEIGHT_SEGMENTS > 1
+            float dz = transformed.z + 1.0;
+            float sdz = smoothstep(0.0, 2.0 + WINGS_DZ, dz);
+            transformed.y = sin(vVel.w - sdx + sdz) * sdx * uWingsDisplacementScale;
+          #else
+            transformed.y = sin(vVel.w - sdx) * sdx * uWingsDisplacementScale;
+          #endif
+
+          #ifdef COMPUTE_NORMALS
+            #if WINGS_HEIGHT_SEGMENTS > 1
+              float s = sign(transformed.x);
+              float sdx1 = smoothstep(0.0, 1.0 + WINGS_DX, dx + WINGS_DX);
+              float sdz1 = smoothstep(0.0, 2.0 + WINGS_DZ, dz + WINGS_DZ);
+              float dvy1 = sin(vVel.w - sdx + sdz1) * sdx * uWingsDisplacementScale - transformed.y;
+              float dvy2 = sin(vVel.w - sdx1 + sdz) * sdx1 * uWingsDisplacementScale - transformed.y;
+              vec3 v1 = vec3(0.0, dvy1, s * WINGS_DZ);
+              vec3 v2 = vec3(s * WINGS_DX, dvy2, 0.0);
+              transformedNormal = -normalize(cross(v1, v2));
+            #else
+              float s = sign(transformed.x);
+              float sdx1 = smoothstep(0.0, 1.0 + WINGS_DX, dx + WINGS_DX);
+              float dvy1 = sin(vVel.w - sdx1) * sdx * uWingsDisplacementScale - transformed.y;
+              vec3 v1 = vec3(0.0, 0.0, s);
+              vec3 v2 = vec3(s * WINGS_DX, dvy1, 0.0);
+              transformedNormal = -normalize(cross(v1, v2));
+            #endif  
+          #endif
+        }
+
+        #ifdef COMPUTE_NORMALS
+          #ifdef USE_INSTANCING
+            mat3 m = mat3( im );
+            transformedNormal /= vec3( dot( m[ 0 ], m[ 0 ] ), dot( m[ 1 ], m[ 1 ] ), dot( m[ 2 ], m[ 2 ] ) );
+            transformedNormal = m * transformedNormal;
+          #endif
+          transformedNormal = normalMatrix * transformedNormal;
+          #ifdef FLIP_SIDED
+            transformedNormal = - transformedNormal;
+          #endif
+          #ifdef USE_TANGENT
+            vec3 transformedTangent = ( modelViewMatrix * vec4( objectTangent, 0.0 ) ).xyz;
+            #ifdef FLIP_SIDED
+              transformedTangent = - transformedTangent;
+            #endif
+          #endif
+          #ifndef FLAT_SHADED
+            vNormal = normalize( transformedNormal );
+            #ifdef USE_TANGENT
+              vTangent = normalize( transformedTangent );
+              vBitangent = normalize( cross( vNormal, vTangent ) * tangent.w );
+            #endif
+          #endif
+        #endif
+      `)
+
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+        vec4 mvPosition = vec4( transformed, 1.0 );
+        #ifdef USE_INSTANCING
+          mvPosition = im * mvPosition;
+        #endif
+        mvPosition = modelViewMatrix * mvPosition;
+        gl_Position = projectionMatrix * mvPosition;
+      `)
+
+      if (textures.length > 1) {
         shader.fragmentShader = `
-          // #define NUM_TEXTURES 4
-          const int NUM_TEXTURES = 4;
           uniform sampler2D uMaps[NUM_TEXTURES];
           flat in int vMapIndex;
         ` + shader.fragmentShader
+        let cases = ''
+        for (let i = 0; i < textures.length; i++) {
+          cases += `case ${i}: tex = texture2D(uMaps[${i}], vUv); break;`
+        }
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
           vec4 tex;
-          switch (vMapIndex) {
-            case 0:
-              tex = texture2D(uMaps[0], vUv);
-              break;
-            case 1:
-              tex = texture2D(uMaps[1], vUv);
-              break;
-            case 2:
-              tex = texture2D(uMaps[2], vUv);
-              break;
-            case 3:
-              tex = texture2D(uMaps[3], vUv);
-              break;
-          }
+          switch (vMapIndex) { ${cases} }
           vec4 sampledDiffuseColor = tex;
           diffuseColor *= sampledDiffuseColor;
         `)
       }
-    })
+    }
+
+    if (config.material === 'phong') {
+      material = new MeshPhongMaterial({
+        ...materialParams
+      })
+    } else {
+      material = new MeshBasicMaterial({
+        ...materialParams
+      })
+    }
 
     iMesh = new InstancedMesh(geometry, material, COUNT)
 
-    // const cscale = colorScale([Math.random() * 0xffffff, Math.random() * 0xffffff, Math.random() * 0xffffff, Math.random() * 0xffffff])
-    // console.log(cscale.getColorAt(0.5))
-    // for (let i = 0; i < COUNT; i++) {
-    //   iMesh.setColorAt(i, cscale.getColorAt(i / COUNT))
-    // }
+    if (Array.isArray(config.colors) && config.colors.length > 0) {
+      const cscale = colorScale(config.colors)
+      for (let i = 0; i < COUNT; i++) {
+        iMesh.setColorAt(i, cscale.getColorAt(i / COUNT))
+      }
+    }
 
     scene.add(iMesh)
   }
@@ -314,9 +403,9 @@ export default async function (params) {
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = rndFS(200)
-      posArray[k + 1] = rndFS(200)
-      posArray[k + 2] = rndFS(200)
+      posArray[k + 0] = rndFS(150)
+      posArray[k + 1] = rndFS(150)
+      posArray[k + 2] = rndFS(150)
       posArray[k + 3] = rnd(0.1, 1)
 
       velArray[k + 0] = rndFS(0.5)
@@ -336,39 +425,4 @@ function commonConfig (params) {
     if (params[key] !== undefined) config[key] = params[key]
   })
   return config
-}
-
-function customGeometry (w, h) {
-  const vertices = [
-    { p: [0, 0, -h / 2], n: [0, 1, 0], uv: [0.5, 0] },
-    { p: [0, 0, h / 2], n: [0, 1, 0], uv: [0.5, 1] },
-    { p: [-w / 2, 0, -h / 2], n: [0, 1, 0], uv: [0, 0] },
-    { p: [-w / 2, 0, h / 2], n: [0, 1, 0], uv: [0, 1] },
-    { p: [w / 2, 0, -h / 2], n: [0, 1, 0], uv: [1, 0] },
-    { p: [w / 2, 0, h / 2], n: [0, 1, 0], uv: [1, 1] }
-  ]
-
-  const indexes = [
-    0, 2, 1,
-    2, 3, 1,
-    0, 1, 4,
-    4, 1, 5
-  ]
-
-  const positions = []
-  const normals = []
-  const uvs = []
-  for (const vertex of vertices) {
-    positions.push(...vertex.p)
-    normals.push(...vertex.n)
-    uvs.push(...vertex.uv)
-  }
-
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
-  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
-  geometry.setIndex(indexes)
-
-  return geometry
 }
