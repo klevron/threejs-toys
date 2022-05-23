@@ -32,7 +32,11 @@ const cdnReplaces = {
   delimiters: ['', '']
 }
 
-const external = ['three', 'three/examples/jsm/misc/GPUComputationRenderer.js']
+const external = [
+  'three',
+  'three/examples/jsm/misc/GPUComputationRenderer.js',
+  'three/examples/jsm/controls/OrbitControls.js'
+]
 
 export default [
   createConfig('es', 'build/threejs-toys.module.js', external, [], false),
