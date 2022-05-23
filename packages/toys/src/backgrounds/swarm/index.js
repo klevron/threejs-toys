@@ -11,9 +11,18 @@ import psrdnoise from '../../glsl/psrdnoise3.glsl'
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  gpgpuSize: 512,
-  colors: [0x00ff00, 0x0000ff],
-  color: 0xff0000
+  gpgpuSize: 256,
+  colors: [Math.random() * 0xffffff, Math.random() * 0xffffff, Math.random() * 0xffffff],
+  geometry: 'custom',
+  light1: { color: 0xffffff, intensity: 1 },
+  light1Position: [0, 0, 0],
+  light2: { color: 0xff9060, intensity: 0.75 },
+  light2Position: [0, -100, -100],
+  light3: { color: 0x6090ff, intensity: 0.5 },
+  light3Position: [0, 100, 100],
+  noiseCoordScale: 0.01,
+  noiseIntensity: 0.0025,
+  timeScale: 0.0004
 }
 
 export default function (params) {
@@ -122,6 +131,11 @@ export default function (params) {
         vec3 grad;
         float n = psrdnoise(pos.xyz * 0.01, vec3(0), uTime * 0.0004, grad);
         vel.xyz += grad * 0.0025;
+        // vel.xyz = clamp(vel.xyz, -0.25, 0.25);
+
+        vec3 dv = -pos.xyz;
+        float coef = smoothstep(150.0, 250.0, length(dv));
+        vel.xyz = vel.xyz + pos.w * coef * normalize(dv);
         vel.xyz = clamp(vel.xyz, -0.25, 0.25);
 
         // vel.xyz = vel.xyz + pos.w * 0.005 * clamp(normalize(uMouse - pos.xyz), -0.5, 0.5);
@@ -185,7 +199,7 @@ export default function (params) {
 
     // geometry = new CapsuleGeometry(0.2, 1, 4, 8).rotateX(Math.PI / 2)
     // geometry = new ConeGeometry(0.2, 1, 6).rotateX(Math.PI / 2)
-    // geometry = new BoxGeometry(0.2, 0.2, 1)
+    // geometry = new BoxGeometry(0.4, 0.4, 2)
     // geometry = new OctahedronGeometry(0.5, 0).rotateX(Math.PI / 2)
     // geometry = new SphereGeometry(0.5, 8, 8)
     geometry = customGeometry(1)
@@ -204,6 +218,8 @@ export default function (params) {
       color: 0xffffff,
       metalness: 0.75,
       roughness: 0.25,
+      // metalness: 0,
+      // roughness: 1,
       // transparent: true,
       // opacity: 0.85,
       // flatShading: true,
@@ -284,9 +300,9 @@ export default function (params) {
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = rndFS(100)
-      posArray[k + 1] = rndFS(100)
-      posArray[k + 2] = rndFS(100)
+      posArray[k + 0] = rndFS(200)
+      posArray[k + 1] = rndFS(200)
+      posArray[k + 2] = rndFS(200)
       posArray[k + 3] = rnd(0.1, 1)
 
       velArray[k + 0] = rndFS(0.5)

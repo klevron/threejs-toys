@@ -1,8 +1,5 @@
-import { AmbientLight, BoxGeometry, BufferAttribute, BufferGeometry, CapsuleGeometry, Color, ConeGeometry, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, Plane, PlaneGeometry, PointLight, Raycaster, SphereGeometry, TextureLoader, Vector2, Vector3 } from 'three'
+import { AmbientLight, BufferGeometry, Color, DirectionalLight, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshPhongMaterial, MeshStandardMaterial, Object3D, Plane, PlaneGeometry, PointLight, Raycaster, TextureLoader, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 
 import three from '../../three'
 import { colorScale } from '../../tools/color'
@@ -11,7 +8,7 @@ import psrdnoise from '../../glsl/psrdnoise3.glsl'
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
-  gpgpuSize: 64,
+  gpgpuSize: 32,
   colors: [0x00ff00, 0x0000ff],
   color: 0xff0000
 }
@@ -34,11 +31,7 @@ export default async function (params) {
   const uMouseDirection = { value: new Vector3() }
   const uniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity, uTime, uMouse, uMouseDirection }
 
-  let effectComposer
-  let renderPass, bloomPass
-
   let camera
-  let light
   let geometry, material, iMesh
 
   const tl = new TextureLoader()
@@ -60,29 +53,15 @@ export default async function (params) {
     },
     initCamera (three) {
       camera = three.camera
-      camera.position.z = 70
+      camera.position.set(0, 50, 70)
     },
     initScene ({ renderer, width, height, camera, scene }) {
       initScene(scene)
-
-      renderPass = new RenderPass(scene, camera)
-
-      bloomPass = new UnrealBloomPass(new Vector2(width, height), 1.5, 0.5, 0.25)
-      // bloomPass.threshold = params.bloomThreshold
-      // bloomPass.strength = params.bloomStrength
-      // bloomPass.radius = params.bloomRadius
-
-      effectComposer = new EffectComposer(renderer)
-      effectComposer.addPass(renderPass)
-      effectComposer.addPass(bloomPass)
-    },
-    afterResize ({ width, height }) {
-      if (effectComposer) effectComposer.setSize(width, height)
     },
     beforeRender ({ clock }) {
       // light.position.lerp(mousePosition, 0.05)
 
-      uTime.value = clock.time
+      uTime.value = clock.time * 0.001
       uMouse.value.copy(mousePosition)
 
       gpu.compute()
@@ -90,9 +69,6 @@ export default async function (params) {
       uOldTexturePosition.value = positionVariable.renderTargets[gpu.currentTextureIndex === 0 ? 1 : 0].texture
       uTextureVelocity.value = velocityVariable.renderTargets[gpu.currentTextureIndex].texture
     },
-    // render () {
-    //   effectComposer.render()
-    // },
     onPointerMove ({ nPosition }) {
       raycaster.setFromCamera(nPosition, camera)
       camera.getWorldDirection(mousePlane.normal)
@@ -127,20 +103,30 @@ export default async function (params) {
         vec4 vel = texture2D(textureVelocity, uv);
 
         vec3 grad;
-        float n = psrdnoise(pos.xyz * 0.01, vec3(0), uTime * 0.0004, grad);
-        vel.xyz += grad * pos.w * 0.002;
+        float n = psrdnoise(pos.xyz * 0.005, vec3(0), uTime * 0.5, grad);
+        grad = grad * 0.0025;
+        vel.xyz = vel.xyz + (pos.w + 0.5) * grad;
+        // vel.xyz = clamp(vel.xyz, -0.1, 0.1);
 
         vec3 dv = -pos.xyz;
-        float coef = smoothstep(100.0, 1000.0, length(dv));
+        float coef = smoothstep(100.0, 150.0, length(dv));
         vel.xyz = vel.xyz + pos.w * coef * normalize(dv);
-        vel.xyz = clamp(vel.xyz, -0.2, 0.2);
+        vel.xyz = clamp(vel.xyz, -0.1, 0.1);
 
         // vel.xyz = vel.xyz + pos.w * 0.005 * clamp(normalize(uMouse - pos.xyz), -0.5, 0.5);
         // vel.xyz = clamp(vel.xyz, -0.1, 0.1);
-        // vel.xyz = vel.xyz + pos.w * 0.01 * normalize(uMouse - pos.xyz);
+        // vel.xyz = vel.xyz + pos.w * 0.005 * normalize(uMouse - pos.xyz);
         // vel.xyz = clamp(vel.xyz, -0.25, 0.25);
 
-        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * 0.5, 6.2831853071);
+        // vec3 dv = pos.xyz - uMouse;
+        // float l = length(dv);
+        // if (l < 20.0) {
+        //   dv = 5.0 * normalize(dv);
+        //   vel.xyz = vel.xyz + dv; 
+        // }
+        // vel.xyz = clamp(vel.xyz, -0.5, 0.5);
+
+        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * 0.75, 6.2831853071);
         gl_FragColor = vel;
       }
     `, dtVelocity)
@@ -176,7 +162,15 @@ export default async function (params) {
    */
   function initScene (scene) {
     scene.background = new Color(0xffffff)
-    geometry = new PlaneGeometry(4, 2.5, 6, 1).rotateX(Math.PI / 2)
+    scene.add(new AmbientLight(0xffffff, 0.5))
+
+    const light = new DirectionalLight(0xffffff, 1)
+    light.position.set(0, 10, 0)
+    light.target = new Object3D()
+    scene.add(light)
+    scene.add(light.target)
+
+    geometry = new PlaneGeometry(2, 2, 10, 10).rotateX(Math.PI / 2)
 
     const mapIndexes = new Int32Array(COUNT)
     const gpuUvs = new Float32Array(COUNT * 2)
@@ -192,19 +186,13 @@ export default async function (params) {
     geometry.setAttribute('gpuUv', new InstancedBufferAttribute(gpuUvs, 2))
     geometry.setAttribute('mapIndex', new InstancedBufferAttribute(mapIndexes, 1))
 
-    material = new MeshBasicMaterial({
-      // color: 0xffffff,
-      // metalness: 0.75,
-      // roughness: 0.25,
-      // transparent: true,
-      // opacity: 0.85,
-      // flatShading: true,
-      // metalness: 0,
-      // roughness: 1,
-      map: tl.load('/b4.png'),
+    material = new MeshStandardMaterial({
+      map: tl.load('/b1.png'),
       side: DoubleSide,
       transparent: true,
       alphaTest: 0.5,
+      metalness: 0,
+      roughness: 1,
       onBeforeCompile: (shader) => {
         Object.keys(uniforms).forEach(key => {
           shader.uniforms[key] = uniforms[key]
@@ -239,33 +227,75 @@ export default async function (params) {
             return mat3(x, y, z);
           }
 
-          mat4 iMatrix(vec3 pos, mat3 rmat, float scale) {
+          mat4 iMatrix(vec3 pos, mat3 rmat, vec3 scale) {
             return mat4(
-              rmat[0][0] * scale, rmat[0][1] * scale, rmat[0][2] * scale, 0.0,
-              rmat[1][0] * scale, rmat[1][1] * scale, rmat[1][2] * scale, 0.0,
-              rmat[2][0] * scale, rmat[2][1] * scale, rmat[2][2] * scale, 0.0,
+              rmat[0][0] * scale.x, rmat[0][1] * scale.x, rmat[0][2] * scale.x, 0.0,
+              rmat[1][0] * scale.y, rmat[1][1] * scale.y, rmat[1][2] * scale.y, 0.0,
+              rmat[2][0] * scale.z, rmat[2][1] * scale.z, rmat[2][2] * scale.z, 0.0,
               pos.x, pos.y, pos.z, 1.0
             );
           }
         ` + shader.vertexShader
-        shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+        shader.vertexShader = shader.vertexShader.replace('#include <defaultnormal_vertex>', '')
+        shader.vertexShader = shader.vertexShader.replace('#include <normal_vertex>', '')
+        shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
           vPos = texture2D(uTexturePosition, gpuUv);
           vec4 oldPos = texture2D(uOldTexturePosition, gpuUv);
           vVel = texture2D(uTextureVelocity, gpuUv);
           vMapIndex = mapIndex;
 
-          vec3 up =vec3(0, 1, 0); //  normalize(uMouse - vPos.xyz);
-          mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, up);
-          mat4 im = iMatrix(vPos.xyz, rmat, 0.5 + vPos.w);
+          mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
+          mat4 im = iMatrix(vPos.xyz, rmat, vec3(0.5 + vPos.w));
 
-          // transformed.z *= length(vVel) * 2.0;
+          vec3 transformedNormal = objectNormal;
+          vec3 transformed = vec3(position);
           float dx = abs(transformed.x);
           if (dx > 0.0) {
-            dx = smoothstep(0.0, 2.0, dx * 0.75);
-            transformed.y = sin(vVel.w - dx) * abs(transformed.x);
+            float sdx = smoothstep(0.0, 1.2, dx);
+            float dy = transformed.z + 1.0;
+            float sdy = smoothstep(0.0, 2.2, dy);
+            transformed.y = sin(vVel.w - sdx + sdy) * sdx * 1.25;
+
+            float s = sign(transformed.x);
+            float sdx1 = smoothstep(0.0, 1.2, dx + 0.2);
+            float sdy1 = smoothstep(0.0, 2.2, dy + s * 0.2);
+            float dvy1 = sin(vVel.w - sdx + sdy1) * sdx * 1.25 - transformed.y;
+            float dvy2 = sin(vVel.w - sdx1 + sdy) * sdx1 * 1.25 - transformed.y;
+            vec3 v1 = vec3(0.0, dvy1, s * 0.2);
+            vec3 v2 = vec3(s * 0.2, dvy2, 0.0);
+            transformedNormal = -normalize(cross(v1, v2));
           }
-          // transformed.y = vVel.z;
-          vec4 mvPosition = modelViewMatrix * im * vec4(transformed, 1.0);
+
+          #ifdef USE_INSTANCING
+            mat3 m = mat3( im );
+            transformedNormal /= vec3( dot( m[ 0 ], m[ 0 ] ), dot( m[ 1 ], m[ 1 ] ), dot( m[ 2 ], m[ 2 ] ) );
+            transformedNormal = m * transformedNormal;
+          #endif
+          transformedNormal = normalMatrix * transformedNormal;
+          #ifdef FLIP_SIDED
+            transformedNormal = - transformedNormal;
+          #endif
+          #ifdef USE_TANGENT
+            vec3 transformedTangent = ( modelViewMatrix * vec4( objectTangent, 0.0 ) ).xyz;
+            #ifdef FLIP_SIDED
+              transformedTangent = - transformedTangent;
+            #endif
+          #endif
+          #ifndef FLAT_SHADED
+            vNormal = normalize( transformedNormal );
+            #ifdef USE_TANGENT
+              vTangent = normalize( transformedTangent );
+              vBitangent = normalize( cross( vNormal, vTangent ) * tangent.w );
+            #endif
+          #endif
+        `)
+
+        shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+          vec4 mvPosition = vec4( transformed, 1.0 );
+          #ifdef USE_INSTANCING
+            mvPosition = im * mvPosition;
+          #endif
+          mvPosition = modelViewMatrix * mvPosition;
           gl_Position = projectionMatrix * mvPosition;
         `)
 
@@ -299,7 +329,7 @@ export default async function (params) {
 
     iMesh = new InstancedMesh(geometry, material, COUNT)
 
-    // const cscale = colorScale([Math.random() * 0xffffff, Math.random() * 0xffffff, Math.random() * 0xffffff, Math.random() * 0xffffff])
+    // const cscale = colorScale([Math.random() * 0xffffff, Math.random() * 0xffffff])
     // console.log(cscale.getColorAt(0.5))
     // for (let i = 0; i < COUNT; i++) {
     //   iMesh.setColorAt(i, cscale.getColorAt(i / COUNT))
@@ -314,9 +344,9 @@ export default async function (params) {
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = rndFS(200)
-      posArray[k + 1] = rndFS(200)
-      posArray[k + 2] = rndFS(200)
+      posArray[k + 0] = rndFS(150)
+      posArray[k + 1] = rndFS(150)
+      posArray[k + 2] = rndFS(150)
       posArray[k + 3] = rnd(0.1, 1)
 
       velArray[k + 0] = rndFS(0.5)
@@ -336,39 +366,4 @@ function commonConfig (params) {
     if (params[key] !== undefined) config[key] = params[key]
   })
   return config
-}
-
-function customGeometry (w, h) {
-  const vertices = [
-    { p: [0, 0, -h / 2], n: [0, 1, 0], uv: [0.5, 0] },
-    { p: [0, 0, h / 2], n: [0, 1, 0], uv: [0.5, 1] },
-    { p: [-w / 2, 0, -h / 2], n: [0, 1, 0], uv: [0, 0] },
-    { p: [-w / 2, 0, h / 2], n: [0, 1, 0], uv: [0, 1] },
-    { p: [w / 2, 0, -h / 2], n: [0, 1, 0], uv: [1, 0] },
-    { p: [w / 2, 0, h / 2], n: [0, 1, 0], uv: [1, 1] }
-  ]
-
-  const indexes = [
-    0, 2, 1,
-    2, 3, 1,
-    0, 1, 4,
-    4, 1, 5
-  ]
-
-  const positions = []
-  const normals = []
-  const uvs = []
-  for (const vertex of vertices) {
-    positions.push(...vertex.p)
-    normals.push(...vertex.n)
-    uvs.push(...vertex.uv)
-  }
-
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
-  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
-  geometry.setIndex(indexes)
-
-  return geometry
 }
