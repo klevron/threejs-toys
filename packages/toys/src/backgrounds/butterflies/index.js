@@ -1,7 +1,7 @@
-import { AmbientLight, Color, DirectionalLight, DoubleSide, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshPhongMaterial, Object3D, Plane, PlaneGeometry, PointLight, Raycaster, TextureLoader, Vector3 } from 'three'
+import { AmbientLight, Color, DirectionalLight, DoubleSide, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial, PlaneGeometry, PointLight, TextureLoader, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
 
-import three from '../../three'
+import three, { commonConfig } from '../../three'
 import psrdnoise from '../../glsl/psrdnoise3.glsl'
 import { colorScale } from '../../tools/color'
 
@@ -10,14 +10,16 @@ const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 const defaultConfig = {
   gpgpuSize: 64,
   material: 'phong',
+  materialParams: {},
   textures: [],
-  colors: [],
+  colors: [0xffffff, 0xffffff],
   lights: [
     { type: 'ambient', color: 0xffffff, intensity: 0.5 },
     { type: 'directional', position: [0, 10, 0], color: 0xffffff, intensity: 1 }
   ],
-  wingsWidthSegment: 8,
-  wingsHeightSegment: 8,
+  wingsScale: [1, 1, 1],
+  wingsWidthSegments: 8,
+  wingsHeightSegments: 8,
   wingsSpeed: 0.75,
   wingsDisplacementScale: 1.25,
   noiseCoordScale: 0.01,
@@ -31,12 +33,16 @@ const defaultConfig = {
 export default async function (params) {
   const config = { ...defaultConfig, ...params }
 
-  if (!['basic', 'phong'].includes(config.material)) {
-    throw new Error('material must be basic or phong')
+  if (!['basic', 'phong', 'standard'].includes(config.material)) {
+    throw new Error(`Invalid material ${config.material}`)
   }
 
   if (!Array.isArray(config.textures) || !Array.isArray(config.colors)) {
     throw new Error('textures/colors must be arrays')
+  }
+
+  if (!Number.isInteger(config.wingsWidthSegments) || config.wingsWidthSegments % 2 !== 0) {
+    throw new Error(`Invalid wingsWidthSegments ${config.wingsWidthSegments}`)
   }
 
   const textures = []
@@ -63,11 +69,12 @@ export default async function (params) {
   const uMaxVelocity = { value: config.maxVelocity }
   const uAttractionRadius1 = { value: config.attractionRadius1 }
   const uAttractionRadius2 = { value: config.attractionRadius2 }
+  const uWingsScale = { value: new Vector3(...config.wingsScale) }
   const uWingsSpeed = { value: config.wingsSpeed }
   const uWingsDisplacementScale = { value: config.wingsDisplacementScale }
 
   const gpuTexturesUniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity }
-  const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uWingsSpeed, uWingsDisplacementScale }
+  const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uWingsScale, uWingsSpeed, uWingsDisplacementScale }
   const uniforms = { ...gpuTexturesUniforms, ...commonUniforms }
 
   let camera
@@ -76,6 +83,7 @@ export default async function (params) {
   three({
     ...commonConfig(params),
     antialias: true,
+    orbitControls: true,
     initRenderer ({ renderer }) {
       initGPU(renderer)
     },
@@ -193,7 +201,7 @@ export default async function (params) {
       })
     }
 
-    geometry = new PlaneGeometry(2, 2, config.wingsWidthSegment, config.wingsHeightSegment).rotateX(Math.PI / 2)
+    geometry = new PlaneGeometry(2, 2, config.wingsWidthSegments, config.wingsHeightSegments).rotateX(Math.PI / 2)
 
     const gpuUvs = new Float32Array(COUNT * 2)
     const mapIndexes = new Int32Array(COUNT)
@@ -209,7 +217,7 @@ export default async function (params) {
     geometry.setAttribute('gpuUv', new InstancedBufferAttribute(gpuUvs, 2))
     geometry.setAttribute('mapIndex', new InstancedBufferAttribute(mapIndexes, 1))
 
-    const materialParams = { side: DoubleSide }
+    const materialParams = { side: DoubleSide, ...config.materialParams }
     if (textures.length > 0) {
       materialParams.map = textures[0]
       materialParams.transparent = true
@@ -219,10 +227,10 @@ export default async function (params) {
     materialParams.onBeforeCompile = shader => {
       shader.defines = {
         COMPUTE_NORMALS: config.material !== 'basic',
-        WINGS_WIDTH_SEGMENTS: config.wingsWidthSegment,
-        WINGS_HEIGHT_SEGMENTS: config.wingsHeightSegment,
-        WINGS_DX: (2.0 / config.wingsWidthSegment).toFixed(10),
-        WINGS_DZ: (2.0 / config.wingsHeightSegment).toFixed(10)
+        WINGS_WIDTH_SEGMENTS: config.wingsWidthSegments,
+        WINGS_HEIGHT_SEGMENTS: config.wingsHeightSegments,
+        WINGS_DX: (2.0 / config.wingsWidthSegments).toFixed(10),
+        WINGS_DZ: (2.0 / config.wingsHeightSegments).toFixed(10)
       }
       Object.keys(uniforms).forEach(key => {
         shader.uniforms[key] = uniforms[key]
@@ -236,6 +244,7 @@ export default async function (params) {
         uniform sampler2D uTexturePosition;
         uniform sampler2D uOldTexturePosition;
         uniform sampler2D uTextureVelocity;
+        uniform vec3 uWingsScale;
         uniform float uWingsDisplacementScale;
         attribute vec2 gpuUv;
         varying vec4 vPos;
@@ -282,7 +291,7 @@ export default async function (params) {
         #endif
 
         mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
-        mat4 im = iMatrix(vPos.xyz, rmat, vec3(0.5 + vPos.w));
+        mat4 im = iMatrix(vPos.xyz, rmat, (0.5 + vPos.w) * uWingsScale);
 
         vec3 transformed = vec3(position);
 
@@ -375,19 +384,20 @@ export default async function (params) {
       }
     }
 
-    if (config.material === 'phong') {
-      material = new MeshPhongMaterial({
-        ...materialParams
-      })
-    } else {
-      material = new MeshBasicMaterial({
-        ...materialParams
-      })
+    switch (config.material) {
+      case 'standard' :
+        material = new MeshStandardMaterial(materialParams)
+        break
+      case 'phong' :
+        material = new MeshPhongMaterial(materialParams)
+        break
+      default :
+        material = new MeshBasicMaterial(materialParams)
     }
 
     iMesh = new InstancedMesh(geometry, material, COUNT)
 
-    if (Array.isArray(config.colors) && config.colors.length > 0) {
+    if (Array.isArray(config.colors) && config.colors.length > 1) {
       const cscale = colorScale(config.colors)
       for (let i = 0; i < COUNT; i++) {
         iMesh.setColorAt(i, cscale.getColorAt(i / COUNT))
@@ -416,13 +426,3 @@ export default async function (params) {
   }
 }
 
-/**
- */
-function commonConfig (params) {
-  const config = {}
-  const keys = ['el', 'canvas', 'width', 'height', 'resize']
-  keys.forEach(key => {
-    if (params[key] !== undefined) config[key] = params[key]
-  })
-  return config
-}
