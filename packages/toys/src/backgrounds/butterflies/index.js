@@ -221,17 +221,17 @@ export default async function (params) {
         COMPUTE_NORMALS: config.material !== 'basic',
         WINGS_WIDTH_SEGMENTS: config.wingsWidthSegment,
         WINGS_HEIGHT_SEGMENTS: config.wingsHeightSegment,
-        WINGS_DX: (2.0 / config.wingsWidthSegment).toFixed(10), // force float
-        WINGS_DZ: (2.0 / config.wingsHeightSegment).toFixed(10) // force float
+        WINGS_DX: (2.0 / config.wingsWidthSegment).toFixed(10),
+        WINGS_DZ: (2.0 / config.wingsHeightSegment).toFixed(10)
       }
+      Object.keys(uniforms).forEach(key => {
+        shader.uniforms[key] = uniforms[key]
+      })
       if (textures.length > 1) {
         shader.defines.USE_MAPINDEX = true
         shader.defines.NUM_TEXTURES = textures.length
-        Object.keys(uniforms).forEach(key => {
-          shader.uniforms[key] = uniforms[key]
-        })
+        shader.uniforms.uMaps = { value: textures }
       }
-      shader.uniforms.uMaps = { value: textures }
       shader.vertexShader = `
         uniform sampler2D uTexturePosition;
         uniform sampler2D uOldTexturePosition;
