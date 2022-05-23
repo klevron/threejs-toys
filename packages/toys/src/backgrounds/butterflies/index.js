@@ -9,7 +9,7 @@ const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
   gpgpuSize: 64,
-  material: 'phong',
+  material: 'basic',
   materialParams: {},
   textures: [],
   colors: [0xffffff, 0xffffff],
