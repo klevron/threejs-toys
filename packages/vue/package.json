@@ -1,0 +1,32 @@
+{
+  "name": "@threejs-toys/vue",
+  "private": true,
+  "version": "0.0.5",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.140.0",
+    "threejs-toys": "^0.0.5",
+    "vue": "^3.2.25"
+  },
+  "devDependencies": {
+    "@types/three": "^0.140.0",
+    "@typescript-eslint/eslint-plugin": "^5.4.0",
+    "@typescript-eslint/parser": "^5.4.0",
+    "@vitejs/plugin-vue": "^2.3.1",
+    "@vue/eslint-config-standard": "^6.1.0",
+    "@vue/eslint-config-typescript": "^9.0.0",
+    "eslint": "^7.32.0",
+    "eslint-plugin-import": "^2.25.3",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "eslint-plugin-standard": "^4.1.0",
+    "eslint-plugin-vue": "^7.20.0",
+    "typescript": "^4.5.4",
+    "vite": "^2.9.7",
+    "vue-tsc": "^0.34.7"
+  }
+}
