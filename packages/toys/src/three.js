@@ -4,7 +4,7 @@ import {
   WebGLRenderer
 } from 'three'
 
-// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import pointer from './pointer'
 
@@ -12,11 +12,13 @@ export default function (params) {
   const options = {
     el: null,
     canvas: null,
+    eventsEl: null,
     width: null,
     height: null,
     resize: true,
     alpha: false,
     antialias: false,
+    orbitControls: false,
     init () {},
     initCamera () {},
     initScene () {},
@@ -42,7 +44,9 @@ export default function (params) {
     options
   }
 
-  // let cameraCtrl
+  let render
+
+  let cameraCtrl
 
   init()
 
@@ -68,10 +72,16 @@ export default function (params) {
     three.camera.position.z = 50
     options.initCamera?.(three)
 
-    // cameraCtrl = new OrbitControls(three.camera, three.renderer.domElement)
-    // cameraCtrl = new OrbitControls(three.camera, document.body)
-    // cameraCtrl.enableDamping = true
-    // cameraCtrl.dampingFactor = 0.1
+    if (options.orbitControls) {
+      cameraCtrl = new OrbitControls(three.camera, options.eventsEl ?? three.renderer.domElement)
+      cameraCtrl.enableDamping = true
+      cameraCtrl.dampingFactor = 0.1
+      if (typeof options.orbitControls === 'object') {
+        Object.keys(options.orbitControls).forEach(key => {
+          cameraCtrl[key] = options.orbitControls[key]
+        })
+      }
+    }
 
     resize()
     if (options.resize && !options.width && !options.height) {
@@ -82,6 +92,8 @@ export default function (params) {
     options.initScene?.(three)
 
     initPointer()
+
+    render = options.render ? options.render : () => { three.renderer.render(three.scene, three.camera) }
 
     requestAnimationFrame(timestamp => {
       three.clock.startTime = three.clock.time = timestamp
@@ -95,7 +107,7 @@ export default function (params) {
     if (options.onPointerMove) { pointerOptions.onMove = options.onPointerMove }
     if (options.onPointerMove) { pointerOptions.onLeave = options.onPointerLeave }
     if (Object.keys(pointerOptions).length > 0) {
-      three.pointer = pointer({ domElement: options.el ?? options.canvas, ...pointerOptions })
+      three.pointer = pointer({ domElement: options.eventsEl ?? (options.el ?? options.canvas), ...pointerOptions })
     }
   }
 
@@ -106,9 +118,9 @@ export default function (params) {
 
     options.beforeRender(three)
 
-    // if (cameraCtrl) cameraCtrl.update()
+    if (cameraCtrl) cameraCtrl.update()
 
-    three.renderer.render(three.scene, three.camera)
+    render(three)
     requestAnimationFrame(animate)
   }
 
@@ -144,4 +156,13 @@ export default function (params) {
     const w = h * three.camera.aspect
     return [w, h]
   }
+}
+
+export function commonConfig (params) {
+  const config = {}
+  const keys = ['el', 'canvas', 'eventsEl', 'width', 'height', 'resize', 'orbitControls']
+  keys.forEach(key => {
+    if (params[key] !== undefined) config[key] = params[key]
+  })
+  return config
 }
