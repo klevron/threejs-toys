@@ -66,9 +66,9 @@ export default function (params) {
   let camera
   let geometry, material, iMesh
 
-  const mousePlane = new Plane(new Vector3(0, 0, 1), 0)
-  const mousePosition = new Vector3()
-  const raycaster = new Raycaster()
+  // const mousePlane = new Plane(new Vector3(0, 0, 1), 0)
+  // const mousePosition = new Vector3()
+  // const raycaster = new Raycaster()
 
   const _three = three({
     ...commonConfig(params),
@@ -95,7 +95,7 @@ export default function (params) {
     },
     beforeRender ({ clock }) {
       uTime.value = clock.time * config.noiseTimeCoef
-      uMouse.value.copy(mousePosition)
+      // uMouse.value.copy(mousePosition)
 
       gpu.compute()
       uTexturePosition.value = positionVariable.renderTargets[gpu.currentTextureIndex].texture
@@ -105,14 +105,14 @@ export default function (params) {
     render () {
       effectComposer.render()
     },
-    onPointerMove ({ nPosition }) {
-      raycaster.setFromCamera(nPosition, camera)
-      camera.getWorldDirection(mousePlane.normal)
-      raycaster.ray.intersectPlane(mousePlane, mousePosition)
-    },
-    onPointerLeave () {
-      mousePosition.set(0, 0, 0)
-    }
+    // onPointerMove ({ nPosition }) {
+    //   raycaster.setFromCamera(nPosition, camera)
+    //   camera.getWorldDirection(mousePlane.normal)
+    //   raycaster.ray.intersectPlane(mousePlane, mousePosition)
+    // },
+    // onPointerLeave () {
+    //   mousePosition.set(0, 0, 0)
+    // }
   })
 
   return { three: _three, config, uniforms, setColors }
@@ -306,17 +306,17 @@ export default function (params) {
   /**
    */
   function initTextures (texturePosition, textureVelocity) {
+    const dummy = new Vector3()
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = rndFS(200)
-      posArray[k + 1] = rndFS(200)
-      posArray[k + 2] = rndFS(200)
+      dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(rndFS(config.attractionRadius1 * 2))
+      dummy.toArray(posArray, k)
       posArray[k + 3] = rnd(0.1, 1)
 
-      velArray[k + 0] = rndFS(0.5)
-      velArray[k + 1] = rndFS(0.5)
-      velArray[k + 2] = rndFS(0.5)
+      // dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(0.1)
+      dummy.set(0, 0, 0)
+      dummy.toArray(velArray, k)
       velArray[k + 3] = 0
     }
   }
