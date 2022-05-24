@@ -24,7 +24,7 @@ const defaultConfig = {
   fishWidthSegments: 8,
   fishSpeed: 1.5,
   fishDisplacementScale: 0.2,
-  noiseCoordScale: 0.01,
+  noiseCoordScale: 0.02,
   noiseTimeCoef: 0.0005,
   noiseIntensity: 0.0025,
   attractionRadius1: 50,

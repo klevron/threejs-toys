@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferGeometry, CapsuleGeometry, Color, ConeGeometry, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, OctahedronGeometry, Plane, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three'
+import { BoxGeometry, BufferGeometry, CapsuleGeometry, Color, ConeGeometry, DoubleSide, Float32BufferAttribute, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshStandardMaterial, OctahedronGeometry, SphereGeometry, Vector2, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
@@ -54,10 +54,9 @@ export default function (params) {
   const uAttractionRadius1 = { value: config.attractionRadius1 }
   const uAttractionRadius2 = { value: config.attractionRadius2 }
   const uMouse = { value: new Vector3() }
-  const uMouseDirection = { value: new Vector3() }
 
   const gpuTexturesUniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity }
-  const commonUniforms = { uScale, uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uMouse, uMouseDirection }
+  const commonUniforms = { uScale, uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uMouse }
   const uniforms = { ...gpuTexturesUniforms, ...commonUniforms }
 
   let effectComposer
@@ -104,7 +103,7 @@ export default function (params) {
     },
     render () {
       effectComposer.render()
-    },
+    }
     // onPointerMove ({ nPosition }) {
     //   raycaster.setFromCamera(nPosition, camera)
     //   camera.getWorldDirection(mousePlane.normal)
