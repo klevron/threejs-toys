@@ -1,6 +1,6 @@
 {
   "name": "threejs-toys",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "scripts": {
     "dev": "vite",
     "rollup": "rollup -c"
