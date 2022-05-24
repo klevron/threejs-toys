@@ -16,15 +16,15 @@ const defaultConfig = {
   textureCount: 1,
   colors: [0xffffff, 0xffffff],
   lights: [
-    { type: 'ambient', params: [0xffffff, 0.5] },
-    { type: 'directional', params: [0xffffff, 0.5], props: { position: [20, 50, 100] } }
+    { type: 'ambient', params: [0xffffff, 0.25] },
+    { type: 'directional', params: [0xffffff, 1], props: { position: [0, 0, 50] } }
   ],
   fogDensity: 0.01,
   fishScale: [1, 1, 1],
   fishWidthSegments: 8,
   fishSpeed: 1.5,
   fishDisplacementScale: 0.2,
-  noiseCoordScale: 0.02,
+  noiseCoordScale: 0.01,
   noiseTimeCoef: 0.0005,
   noiseIntensity: 0.0025,
   attractionRadius1: 50,
@@ -77,7 +77,7 @@ export default function (params) {
       initGPU(renderer)
     },
     initCamera ({ camera }) {
-      camera.position.set(0, 20, 70)
+      camera.position.set(0, 0, 70)
     },
     initScene ({ scene }) {
       initScene(scene)
