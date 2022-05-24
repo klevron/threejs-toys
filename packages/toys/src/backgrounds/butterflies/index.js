@@ -1,7 +1,7 @@
-import { AmbientLight, Color, DirectionalLight, DoubleSide, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial, PlaneGeometry, PointLight, TextureLoader, Vector3 } from 'three'
+import { Color, DoubleSide, HalfFloatType, InstancedBufferAttribute, InstancedMesh, MathUtils, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial, PlaneGeometry, TextureLoader, Vector3 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js'
 
-import three, { commonConfig } from '../../three'
+import three, { commonConfig, initLights } from '../../three'
 import psrdnoise from '../../glsl/psrdnoise3.glsl'
 import { colorScale } from '../../tools/color'
 
@@ -16,8 +16,8 @@ const defaultConfig = {
   textureCount: 1,
   colors: [0xffffff, 0xffffff],
   lights: [
-    { type: 'ambient', color: 0xffffff, intensity: 0.5 },
-    { type: 'directional', position: [0, 10, 0], color: 0xffffff, intensity: 1 }
+    { type: 'ambient', params: [0xffffff, 0.5] },
+    { type: 'directional', params: [0xffffff, 1], props: { position: [0, 10, 0] } }
   ],
   wingsScale: [1, 1, 1],
   wingsWidthSegments: 8,
@@ -168,28 +168,7 @@ export default function (params) {
       scene.background = new Color(config.background)
     }
 
-    if (Array.isArray(config.lights) && config.lights.length > 0) {
-      let light
-      config.lights.forEach(lightConfig => {
-        switch (lightConfig.type) {
-          case 'ambient':
-            light = new AmbientLight(lightConfig.color, lightConfig.intensity)
-            break
-          case 'directional':
-            light = new DirectionalLight(lightConfig.color, lightConfig.intensity)
-            break
-          case 'point':
-            light = new PointLight(lightConfig.color, lightConfig.intensity)
-            break
-          default:
-            console.error(`Unknown light type ${lightConfig.type}`)
-        }
-        if (light) {
-          if (lightConfig.position) light.position.set(...lightConfig.position)
-          scene.add(light)
-        }
-      })
-    }
+    initLights(scene, config.lights)
 
     geometry = new PlaneGeometry(2, 2, config.wingsWidthSegments, config.wingsHeightSegments).rotateX(Math.PI / 2)
 
