@@ -36,7 +36,36 @@ Work in progress...
 ```
 npm install three threejs-toys
 ```
+
 ## Toys
+
+### Butterflies - https://codepen.io/soju22/full/dydVGEd
+
+<img src="https://github.com/klevron/threejs-toys/blob/main/screenshots/bg-butterflies.jpg.jpg?raw=true" style="width:30%;" />
+
+```js
+import { butterfliesBackground } from 'threejs-toys'
+butterfliesBackground({
+  el: document.getElementById('app'),
+  gpgpuSize: 64,
+  background: 0xffffff,
+  material: 'basic', // 'basic', 'phong', 'standard'
+  materialParams: { transparent: true, alphaTest: 0.5 },
+  texture: '/butterflies.png',
+  textureCount: 4,
+  wingsScale: [1, 1, 1],
+  wingsWidthSegments: 8,
+  wingsHeightSegments: 8,
+  wingsSpeed: 0.75,
+  wingsDisplacementScale: 1.25,
+  noiseCoordScale: 0.01,
+  noiseTimeCoef: 0.0005,
+  noiseIntensity: 0.0025,
+  attractionRadius1: 100,
+  attractionRadius2: 150,
+  maxVelocity: 0.1
+})
+```
 
 ### Particles Cursor - https://codepen.io/soju22/full/KKQaGrE
 
