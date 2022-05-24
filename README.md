@@ -41,7 +41,7 @@ npm install three threejs-toys
 
 ### Butterflies - https://codepen.io/soju22/full/dydVGEd
 
-<img src="https://github.com/klevron/threejs-toys/blob/main/screenshots/bg-butterflies.jpg.jpg?raw=true" style="width:30%;" />
+<img src="https://github.com/klevron/threejs-toys/blob/main/screenshots/bg-butterflies.jpg?raw=true" style="width:30%;" />
 
 ```js
 import { butterfliesBackground } from 'threejs-toys'
