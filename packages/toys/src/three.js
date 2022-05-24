@@ -171,6 +171,7 @@ export function commonConfig (params) {
 }
 
 export function initLights (scene, lightsConfig) {
+  const lights = []
   if (Array.isArray(lightsConfig) && lightsConfig.length > 0) {
     let light
     lightsConfig.forEach(lightConfig => {
@@ -196,7 +197,9 @@ export function initLights (scene, lightsConfig) {
           })
         }
         scene.add(light)
+        lights.push(light)
       }
     })
   }
+  return lights
 }
