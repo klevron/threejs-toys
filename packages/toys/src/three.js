@@ -1,5 +1,8 @@
 import {
+  AmbientLight,
+  DirectionalLight,
   PerspectiveCamera,
+  PointLight,
   Scene,
   WebGLRenderer
 } from 'three'
@@ -165,4 +168,35 @@ export function commonConfig (params) {
     if (params[key] !== undefined) config[key] = params[key]
   })
   return config
+}
+
+export function initLights (scene, lightsConfig) {
+  if (Array.isArray(lightsConfig) && lightsConfig.length > 0) {
+    let light
+    lightsConfig.forEach(lightConfig => {
+      switch (lightConfig.type) {
+        case 'ambient':
+          light = new AmbientLight(...lightConfig.params)
+          break
+        case 'directional':
+          light = new DirectionalLight(...lightConfig.params)
+          break
+        case 'point':
+          light = new PointLight(...lightConfig.params)
+          break
+        default:
+          console.error(`Unknown light type ${lightConfig.type}`)
+      }
+      if (light) {
+        if (typeof lightConfig.props === 'object') {
+          Object.keys(lightConfig.props).forEach(key => {
+            if (key === 'position') {
+              light.position.set(...lightConfig.props[key])
+            } else light[key] = lightConfig.props[key]
+          })
+        }
+        scene.add(light)
+      }
+    })
+  }
 }
