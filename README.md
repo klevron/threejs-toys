@@ -45,6 +45,7 @@ npm install three threejs-toys
 
 ```js
 import { butterfliesBackground } from 'threejs-toys'
+
 butterfliesBackground({
   el: document.getElementById('app'),
   gpgpuSize: 64,
@@ -64,6 +65,20 @@ butterfliesBackground({
   attractionRadius1: 100,
   attractionRadius2: 150,
   maxVelocity: 0.1
+})
+```
+
+With *phong* or *standard* material, you can setup lights :
+
+```js
+butterfliesBackground({
+  // ...
+  material: 'phong', // or 'standard'
+  lights: [
+    { type: 'ambient', params: [0xffffff, 0.5] },
+    { type: 'directional', params: [0xffffff, 1], props: { position: [0, 10, 0] } }
+  ],
+  // ...
 })
 ```
 
