@@ -19,10 +19,11 @@ const defaultConfig = {
     { type: 'ambient', params: [0xffffff, 0.5] },
     { type: 'directional', params: [0xffffff, 0.5], props: { position: [20, 50, 100] } }
   ],
-  wingsScale: [1, 1, 1],
-  wingsWidthSegments: 8,
-  wingsSpeed: 1.5,
-  wingsDisplacementScale: 0.2,
+  fogDensity: 0.01,
+  fishScale: [1, 1, 1],
+  fishWidthSegments: 8,
+  fishSpeed: 1.5,
+  fishDisplacementScale: 0.2,
   noiseCoordScale: 0.01,
   noiseTimeCoef: 0.0005,
   noiseIntensity: 0.0025,
@@ -38,8 +39,8 @@ export default function (params) {
     throw new Error(`Invalid material ${config.material}`)
   }
 
-  if (!Number.isInteger(config.wingsWidthSegments) || config.wingsWidthSegments % 2 !== 0) {
-    throw new Error(`Invalid wingsWidthSegments ${config.wingsWidthSegments}`)
+  if (!Number.isInteger(config.fishWidthSegments) || config.fishWidthSegments % 2 !== 0) {
+    throw new Error(`Invalid fishWidthSegments ${config.fishWidthSegments}`)
   }
 
   const WIDTH = config.gpgpuSize
@@ -58,12 +59,12 @@ export default function (params) {
   const uMaxVelocity = { value: config.maxVelocity }
   const uAttractionRadius1 = { value: config.attractionRadius1 }
   const uAttractionRadius2 = { value: config.attractionRadius2 }
-  const uWingsScale = { value: new Vector3(...config.wingsScale) }
-  const uWingsSpeed = { value: config.wingsSpeed }
-  const uWingsDisplacementScale = { value: config.wingsDisplacementScale }
+  const uFishScale = { value: new Vector3(...config.fishScale) }
+  const uFishSpeed = { value: config.fishSpeed }
+  const uFishDisplacementScale = { value: config.fishDisplacementScale }
 
   const gpuTexturesUniforms = { uTexturePosition, uOldTexturePosition, uTextureVelocity }
-  const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uWingsScale, uWingsSpeed, uWingsDisplacementScale }
+  const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uFishScale, uFishSpeed, uFishDisplacementScale }
   const uniforms = { ...gpuTexturesUniforms, ...commonUniforms }
 
   let geometry, material, iMesh
@@ -113,7 +114,7 @@ export default function (params) {
       uniform float uMaxVelocity;
       uniform float uAttractionRadius1;
       uniform float uAttractionRadius2;
-      uniform float uWingsSpeed;
+      uniform float uFishSpeed;
       void main() {
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec4 pos = texture2D(texturePosition, uv);
@@ -129,7 +130,7 @@ export default function (params) {
         vel.xyz = vel.xyz + pos.w * coef * normalize(dv);
         vel.xyz = clamp(vel.xyz, -uMaxVelocity, uMaxVelocity);
 
-        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * uWingsSpeed, 6.2831853071);
+        vel.w = mod(vel.w + length(vel.xyz) * (0.5 + pos.w) * uFishSpeed, 6.2831853071);
         gl_FragColor = vel;
       }
     `, dtVelocity)
@@ -165,12 +166,12 @@ export default function (params) {
   function initScene (scene) {
     if (config.background !== undefined) {
       scene.background = new Color(config.background)
-      scene.fog = new FogExp2(config.background, 0.01)
+      if (config.fogDensity) scene.fog = new FogExp2(config.background, config.fogDensity)
     }
 
     initLights(scene, config.lights)
 
-    geometry = new PlaneGeometry(2, 1, config.wingsWidthSegments, 1).rotateY(Math.PI / 2)
+    geometry = new PlaneGeometry(2, 1, config.fishWidthSegments, 1).rotateY(Math.PI / 2)
 
     const gpuUvs = new Float32Array(COUNT * 2)
     const mapIndexes = new Float32Array(COUNT)
@@ -194,7 +195,7 @@ export default function (params) {
     materialParams.onBeforeCompile = shader => {
       shader.defines = {
         COMPUTE_NORMALS: config.material !== 'basic',
-        WINGS_DZ: (2.0 / config.wingsWidthSegments).toFixed(10),
+        FISH_DZ: (2.0 / config.fishWidthSegments).toFixed(10),
         TEXTURE_COUNT: config.textureCount.toFixed(10)
       }
       Object.keys(uniforms).forEach(key => {
@@ -204,8 +205,8 @@ export default function (params) {
         uniform sampler2D uTexturePosition;
         uniform sampler2D uOldTexturePosition;
         uniform sampler2D uTextureVelocity;
-        uniform vec3 uWingsScale;
-        uniform float uWingsDisplacementScale;
+        uniform vec3 uFishScale;
+        uniform float uFishDisplacementScale;
         attribute vec2 gpuUv;
         attribute float mapIndex;
         varying vec4 vPos;
@@ -245,7 +246,7 @@ export default function (params) {
         vMapIndex = float(mapIndex);
 
         mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
-        mat4 im = iMatrix(vPos.xyz, rmat, (0.5 + vPos.w) * uWingsScale);
+        mat4 im = iMatrix(vPos.xyz, rmat, (0.5 + vPos.w) * uFishScale);
 
         vec3 transformed = vec3(position);
 
@@ -255,13 +256,13 @@ export default function (params) {
 
         float dz = transformed.z + 1.0;
         float sdz = smoothstep(2.0, 0.0, dz);
-        transformed.x += sin(vVel.w + dz * PI * 1.5) * sdz * uWingsDisplacementScale;
+        transformed.x += sin(vVel.w + dz * PI * 1.5) * sdz * uFishDisplacementScale;
 
         #ifdef COMPUTE_NORMALS
           float dz1 = dz - 0.2;
           float sdz1 = smoothstep(2.0, 0.0, dz1);
-          float dx1 = sin(vVel.w + dz1 * PI * 1.5) * sdz1 * uWingsDisplacementScale - transformed.x;
-          vec3 v1 = vec3(dx1, 0.0, -WINGS_DZ);
+          float dx1 = sin(vVel.w + dz1 * PI * 1.5) * sdz1 * uFishDisplacementScale - transformed.x;
+          vec3 v1 = vec3(dx1, 0.0, -FISH_DZ);
           vec3 v2 = vec3(0.0, 1.0, 0.0);
           transformedNormal = normalize(cross(v1, v2));
         #endif
