@@ -9,9 +9,11 @@ const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
 
 const defaultConfig = {
   gpgpuSize: 64,
+  background: 0xffffff,
   material: 'basic',
   materialParams: {},
-  textures: [],
+  texture: null,
+  textureCount: 1,
   colors: [0xffffff, 0xffffff],
   lights: [
     { type: 'ambient', color: 0xffffff, intensity: 0.5 },
@@ -30,27 +32,15 @@ const defaultConfig = {
   maxVelocity: 0.1
 }
 
-export default async function (params) {
+export default function (params) {
   const config = { ...defaultConfig, ...params }
 
   if (!['basic', 'phong', 'standard'].includes(config.material)) {
     throw new Error(`Invalid material ${config.material}`)
   }
 
-  if (!Array.isArray(config.textures) || !Array.isArray(config.colors)) {
-    throw new Error('textures/colors must be arrays')
-  }
-
   if (!Number.isInteger(config.wingsWidthSegments) || config.wingsWidthSegments % 2 !== 0) {
     throw new Error(`Invalid wingsWidthSegments ${config.wingsWidthSegments}`)
-  }
-
-  const textures = []
-  if (config.textures.length > 0) {
-    const loader = new TextureLoader()
-    for (let i = 0; i < config.textures.length; i++) {
-      textures[i] = await loader.loadAsync(config.textures[i])
-    }
   }
 
   const WIDTH = config.gpgpuSize
@@ -77,18 +67,16 @@ export default async function (params) {
   const commonUniforms = { uTime, uNoiseCoordScale, uNoiseIntensity, uMaxVelocity, uAttractionRadius1, uAttractionRadius2, uWingsScale, uWingsSpeed, uWingsDisplacementScale }
   const uniforms = { ...gpuTexturesUniforms, ...commonUniforms }
 
-  let camera
   let geometry, material, iMesh
 
-  three({
+  const _three = three({
     ...commonConfig(params),
     antialias: true,
     orbitControls: true,
     initRenderer ({ renderer }) {
       initGPU(renderer)
     },
-    initCamera (three) {
-      camera = three.camera
+    initCamera ({ camera }) {
       camera.position.set(0, 50, 70)
     },
     initScene ({ scene }) {
@@ -104,7 +92,7 @@ export default async function (params) {
     }
   })
 
-  return { config, uniforms }
+  return { three: _three, config, uniforms, setColors }
 
   /**
    */
@@ -176,7 +164,9 @@ export default async function (params) {
   /**
    */
   function initScene (scene) {
-    scene.background = new Color(0xffffff)
+    if (config.background !== undefined) {
+      scene.background = new Color(config.background)
+    }
 
     if (Array.isArray(config.lights) && config.lights.length > 0) {
       let light
@@ -204,24 +194,22 @@ export default async function (params) {
     geometry = new PlaneGeometry(2, 2, config.wingsWidthSegments, config.wingsHeightSegments).rotateX(Math.PI / 2)
 
     const gpuUvs = new Float32Array(COUNT * 2)
-    const mapIndexes = new Int32Array(COUNT)
+    const mapIndexes = new Float32Array(COUNT)
     let i1 = 0
     let i2 = 0
     for (let j = 0; j < WIDTH; j++) {
       for (let i = 0; i < WIDTH; i++) {
         gpuUvs[i1++] = i / (WIDTH - 1)
         gpuUvs[i1++] = j / (WIDTH - 1)
-        mapIndexes[i2++] = Math.floor(Math.random() * textures.length)
+        mapIndexes[i2++] = Math.floor(Math.random() * config.textureCount)
       }
     }
     geometry.setAttribute('gpuUv', new InstancedBufferAttribute(gpuUvs, 2))
     geometry.setAttribute('mapIndex', new InstancedBufferAttribute(mapIndexes, 1))
 
     const materialParams = { side: DoubleSide, ...config.materialParams }
-    if (textures.length > 0) {
-      materialParams.map = textures[0]
-      materialParams.transparent = true
-      materialParams.alphaTest = 0.5
+    if (config.texture) {
+      materialParams.map = new TextureLoader().load(config.texture)
     }
 
     materialParams.onBeforeCompile = shader => {
@@ -230,16 +218,12 @@ export default async function (params) {
         WINGS_WIDTH_SEGMENTS: config.wingsWidthSegments,
         WINGS_HEIGHT_SEGMENTS: config.wingsHeightSegments,
         WINGS_DX: (2.0 / config.wingsWidthSegments).toFixed(10),
-        WINGS_DZ: (2.0 / config.wingsHeightSegments).toFixed(10)
+        WINGS_DZ: (2.0 / config.wingsHeightSegments).toFixed(10),
+        TEXTURE_COUNT: config.textureCount.toFixed(10)
       }
       Object.keys(uniforms).forEach(key => {
         shader.uniforms[key] = uniforms[key]
       })
-      if (textures.length > 1) {
-        shader.defines.USE_MAPINDEX = true
-        shader.defines.NUM_TEXTURES = textures.length
-        shader.uniforms.uMaps = { value: textures }
-      }
       shader.vertexShader = `
         uniform sampler2D uTexturePosition;
         uniform sampler2D uOldTexturePosition;
@@ -247,13 +231,10 @@ export default async function (params) {
         uniform vec3 uWingsScale;
         uniform float uWingsDisplacementScale;
         attribute vec2 gpuUv;
+        attribute float mapIndex;
         varying vec4 vPos;
         varying vec4 vVel;
-
-        #ifdef USE_MAPINDEX
-          attribute int mapIndex;
-          flat out int vMapIndex;
-        #endif
+        varying float vMapIndex;
 
         mat3 lookAt(vec3 origin, vec3 target, vec3 up) {
           vec3 z = target - origin;
@@ -285,10 +266,7 @@ export default async function (params) {
         vPos = texture2D(uTexturePosition, gpuUv);
         vec4 oldPos = texture2D(uOldTexturePosition, gpuUv);
         vVel = texture2D(uTextureVelocity, gpuUv);
-
-        #ifdef USE_MAPINDEX
-          vMapIndex = mapIndex;
-        #endif
+        vMapIndex = float(mapIndex);
 
         mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
         mat4 im = iMatrix(vPos.xyz, rmat, (0.5 + vPos.w) * uWingsScale);
@@ -366,22 +344,17 @@ export default async function (params) {
         gl_Position = projectionMatrix * mvPosition;
       `)
 
-      if (textures.length > 1) {
-        shader.fragmentShader = `
-          uniform sampler2D uMaps[NUM_TEXTURES];
-          flat in int vMapIndex;
-        ` + shader.fragmentShader
-        let cases = ''
-        for (let i = 0; i < textures.length; i++) {
-          cases += `case ${i}: tex = texture2D(uMaps[${i}], vUv); break;`
-        }
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-          vec4 tex;
-          switch (vMapIndex) { ${cases} }
-          vec4 sampledDiffuseColor = tex;
+      shader.fragmentShader = `
+        varying float vMapIndex;
+      ` + shader.fragmentShader
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec2 uv = vUv;
+          uv.x = (vMapIndex + vUv.x) / TEXTURE_COUNT;
+          vec4 sampledDiffuseColor = texture2D(map, uv);
           diffuseColor *= sampledDiffuseColor;
-        `)
-      }
+        #endif
+      `)
     }
 
     switch (config.material) {
@@ -396,15 +369,18 @@ export default async function (params) {
     }
 
     iMesh = new InstancedMesh(geometry, material, COUNT)
+    setColors(config.colors)
+    scene.add(iMesh)
+  }
 
-    if (Array.isArray(config.colors) && config.colors.length > 1) {
-      const cscale = colorScale(config.colors)
+  function setColors (colors) {
+    if (Array.isArray(colors) && colors.length > 1) {
+      const cscale = colorScale(colors)
       for (let i = 0; i < COUNT; i++) {
         iMesh.setColorAt(i, cscale.getColorAt(i / COUNT))
       }
+      iMesh.instanceColor.needsUpdate = true
     }
-
-    scene.add(iMesh)
   }
 
   /**
@@ -425,4 +401,3 @@ export default async function (params) {
     }
   }
 }
-
