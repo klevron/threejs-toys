@@ -64,7 +64,6 @@ export default function (params) {
   let renderPass, bloomPass
 
   let camera
-  let lights
   let geometry, material, iMesh
 
   const mousePlane = new Plane(new Vector3(0, 0, 1), 0)
@@ -95,8 +94,6 @@ export default function (params) {
       if (effectComposer) effectComposer.setSize(width, height)
     },
     beforeRender ({ clock }) {
-      // light.position.lerp(mousePosition, 0.05)
-
       uTime.value = clock.time * config.noiseTimeCoef
       uMouse.value.copy(mousePosition)
 
@@ -194,7 +191,7 @@ export default function (params) {
       scene.background = new Color(config.background)
     }
 
-    lights = initLights(scene, config.lights)
+    initLights(scene, config.lights)
 
     switch (config.geometry) {
       case 'box' :
