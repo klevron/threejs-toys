@@ -324,17 +324,14 @@ export default function (params) {
   /**
    */
   function initTextures (texturePosition, textureVelocity) {
+    const dummy = new Vector3()
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      posArray[k + 0] = rndFS(100)
-      posArray[k + 1] = rndFS(100)
-      posArray[k + 2] = rndFS(100)
+      dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(rndFS(config.attractionRadius1 * 2)).toArray(posArray, k)
       posArray[k + 3] = rnd(0.1, 1)
 
-      velArray[k + 0] = rndFS(0.5)
-      velArray[k + 1] = rndFS(0.5)
-      velArray[k + 2] = rndFS(0.5)
+      dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(rndFS(0.5)).toArray(velArray, k)
       velArray[k + 3] = 0
     }
   }

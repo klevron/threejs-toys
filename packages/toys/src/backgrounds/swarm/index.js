@@ -289,13 +289,10 @@ export default function (params) {
     const posArray = texturePosition.image.data
     const velArray = textureVelocity.image.data
     for (let k = 0, kl = posArray.length; k < kl; k += 4) {
-      dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(rndFS(config.attractionRadius1 * 2))
-      dummy.toArray(posArray, k)
+      dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(rndFS(config.attractionRadius1 * 2)).toArray(posArray, k)
       posArray[k + 3] = rnd(0.1, 1)
 
-      // dummy.set(rndFS(1), rndFS(1), rndFS(1)).normalize().multiplyScalar(0.1)
-      dummy.set(0, 0, 0)
-      dummy.toArray(velArray, k)
+      dummy.set(0, 0, 0).toArray(velArray, k)
       velArray[k + 3] = 0
     }
   }
