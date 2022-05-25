@@ -6,6 +6,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 
 import three, { commonConfig, initLights } from '../../three'
 import psrdnoise from '../../glsl/psrdnoise3.glsl'
+import mat3LookAt from '../../glsl/mat3-lookat.glsl'
+import mat4Compose from '../../glsl/mat4-compose.glsl'
 import { colorScale } from '../../tools/color'
 
 const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils
@@ -239,30 +241,8 @@ export default function (params) {
           attribute vec2 gpuUv;
           varying vec4 vPos;
           varying vec4 vVel;
-
-          mat3 lookAt(vec3 origin, vec3 target, vec3 up) {
-            vec3 z = target - origin;
-            if (z.x * z.x + z.y * z.y + z.z * z.z == 0.0) { z.z = 1.0; }
-            z = normalize(z);
-            vec3 x = cross(up, z);
-            if (x.x * x.x + x.y * x.y + x.z * x.z == 0.0) {
-              if (abs(up.z) == 1.0) { z.x += 0.0001; }
-              else { z.z += 0.0001; }
-              x = cross(up, z);
-            }
-            x = normalize(x);
-            vec3 y = cross(z, x);
-            return mat3(x, y, z);
-          }
-
-          mat4 iMatrix(vec3 pos, mat3 rmat, vec3 scale) {
-            return mat4(
-              rmat[0][0] * scale.x, rmat[0][1] * scale.x, rmat[0][2] * scale.x, 0.0,
-              rmat[1][0] * scale.y, rmat[1][1] * scale.y, rmat[1][2] * scale.y, 0.0,
-              rmat[2][0] * scale.z, rmat[2][1] * scale.z, rmat[2][2] * scale.z, 0.0,
-              pos.x, pos.y, pos.z, 1.0
-            );
-          }
+          ${mat3LookAt}
+          ${mat4Compose}
         ` + shader.vertexShader
         shader.vertexShader = shader.vertexShader.replace('#include <defaultnormal_vertex>', `
           vPos = texture2D(uTexturePosition, gpuUv);
@@ -270,7 +250,7 @@ export default function (params) {
           vVel = texture2D(uTextureVelocity, gpuUv);
 
           mat3 rmat = lookAt(oldPos.xyz, vPos.xyz, vec3(0, 1, 0));
-          mat4 im = iMatrix(vPos.xyz, rmat, (0.5 + vPos.w) * uScale);
+          mat4 im = compose(vPos.xyz, rmat, (0.5 + vPos.w) * uScale);
 
           vec3 transformedNormal = objectNormal;
           mat3 m = mat3(im);
