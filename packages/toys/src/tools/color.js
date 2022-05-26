@@ -19,8 +19,8 @@ export function colorScale (colors) {
     const p = Math.max(0, Math.min(1, progress)) * (colors.length - 1)
     const i1 = Math.floor(p)
     const c1 = range[i1]
-    if (i1 === colors.length - 1) {
-      return c1.getHex()
+    if (i1 >= colors.length - 1) {
+      return c1.clone()
     }
     const p1 = p - i1
     const c2 = range[i1 + 1]
