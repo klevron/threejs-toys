@@ -41,6 +41,37 @@ npm install three threejs-toys
 
 ## Toys
 
+### Fishes - https://codepen.io/soju22/full/qBxVXmb
+
+<img src="https://github.com/klevron/threejs-toys/blob/main/screenshots/bg-fishes.jpg?raw=true" style="width:30%;" />
+
+```js
+import { fishesBackground } from 'threejs-toys'
+
+fishesBackground({
+  el: document.getElementById('app'),
+  gpgpuSize: 96,
+  background: 0x031F48,
+  fogDensity: 0.025,
+  texture: '/fishes.png',
+  textureCount: 8,
+  material: 'phong',
+  materialParams: {
+    transparent: true,
+    alphaTest: 0.5
+  },
+  fishScale: [1, 1, 1],
+  fishWidthSegments: 8,
+  fishSpeed: 1.5,
+  noiseCoordScale: 0.01,
+  noiseTimeCoef: 0.0005,
+  noiseIntensity: 0.0005,
+  attractionRadius1: 50,
+  attractionRadius2: 150,
+  maxVelocity: 0.1
+})
+```
+
 ### Butterflies - https://codepen.io/soju22/full/dydVGEd
 
 <img src="https://github.com/klevron/threejs-toys/blob/main/screenshots/bg-butterflies.jpg?raw=true" style="width:30%;" />
