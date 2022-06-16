@@ -1,29 +1,30 @@
-import three from './three'
+import threeWrapper, { commonConfig, initLights } from '../three'
 
 const defaultConfig = {
+  lights: []
 }
 
 export default function (params) {
   const config = { ...defaultConfig, ...params }
 
-  three({
-    el: params.el,
+  const three = threeWrapper({
+    ...commonConfig(params),
     antialias: false,
-    init ({ renderer }) {
-    },
-    initCamera (three) {
-    },
-    initScene ({ scene }) {
-    },
-    afterResize ({ width, height }) {
-    },
-    beforeRender ({ clock, width, height, wWidth, wHeight }) {
-    },
-    onPointerMove ({ position, nPosition, delta }) {
-    },
-    onPointerLeave () {
-    }
+    initScene,
+    afterResize,
+    beforeRender,
+    onPointerMove,
+    onPointerLeave
   })
 
-  return { config }
+  function initScene ({ scene }) {
+    initLights(scene, config.lights)
+  }
+
+  function afterResize ({ width, height }) {}
+  function beforeRender ({ clock, width, height, wWidth, wHeight }) {}
+  function onPointerMove ({ position, nPosition, delta }) {}
+  function onPointerLeave () {}
+
+  return { three, config }
 }
