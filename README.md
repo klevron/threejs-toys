@@ -1,3 +1,9 @@
+# November 2024
+
+**This repository is no longer maintained.**
+
+My threejs toys/components library is now here : **https://github.com/klevron/threejs-components** (**sponsors-only access**)
+
 # ✨ ThreeJS Toys - Made with 💙
 
 [![NPM Package][npm]][npm-url]
@@ -20,17 +26,8 @@ https://codepen.io/collection/yrbrrk
 
 ## Sponsors (Thanks 💙 !!!)
 
-<a href="https://github.com/avaer">
-  <img src="https://github.com/avaer.png" width="50px" />
-</a>
 <a href="https://github.com/designori-llc">
   <img src="https://github.com/designori-llc.png" width="50px" />
-</a>
-<a href="https://github.com/michelwaechter">
-  <img src="https://github.com/michelwaechter.png" width="50px" />
-</a>
-<a href="https://github.com/okydk">
-  <img src="https://github.com/okydk.png" width="50px" />
 </a>
 
 ## Usage - npm
